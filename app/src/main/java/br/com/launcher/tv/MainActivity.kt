@@ -227,11 +227,12 @@ class MainActivity : Activity() {
 
     private fun finishReorder() {
         if (!reorderMode) return
+        val selected = movingIndex.coerceIn(0, appItems.lastIndex)
         reorderMode = false
         movingIndex = -1
         prefs.edit().putString("packages", appItems.joinToString("|") { it.activityInfo.packageName }).apply()
         Toast.makeText(this, "Ordem salva", Toast.LENGTH_SHORT).show()
-        rebuildGrid(appItems.indexOfFirst { it.activityInfo.packageName == appItems.getOrNull(movingIndex)?.activityInfo?.packageName }.coerceAtLeast(0))
+        rebuildGrid(selected)
     }
 
     private fun cancelReorder() {
