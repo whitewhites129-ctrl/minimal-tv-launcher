@@ -1,11 +1,13 @@
 package br.com.launcher.tv
 
 import android.app.Activity
+import android.app.role.RoleManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.os.Build
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
@@ -20,8 +22,9 @@ import java.util.Date
 import java.util.Locale
 
 class MainActivity : Activity() {
-    private val bg = Color.rgb(5, 7, 11)
-    private val blue = Color.rgb(77, 155, 255)
+    private val bg = Color.rgb(10, 13, 19)
+    private val panel = Color.rgb(23, 29, 39)
+    private val blue = Color.rgb(91, 170, 255)
     private lateinit var clock: TextView
     private lateinit var date: TextView
 
@@ -43,39 +46,73 @@ class MainActivity : Activity() {
     private fun buildScreen() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(42), dp(28), dp(42), dp(24))
-            setBackgroundColor(bg)
+            setPadding(dp(54), dp(34), dp(54), dp(28))
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                intArrayOf(Color.rgb(15, 22, 34), bg, Color.rgb(8, 11, 16))
+            )
             layoutParams = ViewGroup.LayoutParams(-1, -1)
         }
+
         val top = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
         val left = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         clock = TextView(this).apply {
-            textSize = 34f
+            textSize = 42f
             setTextColor(Color.WHITE)
-            typeface = Typeface.create("sans-serif", Typeface.NORMAL)
+            letterSpacing = 0.015f
+            typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
         }
-        date = TextView(this).apply { textSize = 14f; setTextColor(Color.LTGRAY) }
+        date = TextView(this).apply {
+            textSize = 15f
+            setTextColor(Color.rgb(166, 178, 196))
+            setPadding(0, dp(2), 0, 0)
+        }
         left.addView(clock)
         left.addView(date)
         top.addView(left, LinearLayout.LayoutParams(0, -2, 1f))
-        top.addView(TextView(this).apply {
-            text = "●  Wi-Fi     ⚙"
-            textSize = 16f
-            setTextColor(Color.LTGRAY)
-        })
+
+        val defaultButton = TextView(this).apply {
+            text = "Definir como padrão  ⚙"
+            textSize = 14f
+            setTextColor(Color.rgb(205, 216, 232))
+            setPadding(dp(16), dp(10), dp(16), dp(10))
+            background = rounded(Color.rgb(28, 38, 52), 22)
+            isFocusable = true
+            setOnFocusChangeListener { v, focused ->
+                v.background = rounded(if (focused) Color.rgb(40, 65, 94) else Color.rgb(28, 38, 52), 22,
+                    if (focused) blue else Color.TRANSPARENT)
+            }
+            setOnClickListener { requestDefaultLauncher() }
+        }
+        top.addView(defaultButton)
         root.addView(top)
 
-        root.addView(TextView(this).apply {
-            text = "Aplicativos"
-            textSize = 19f
+        val section = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, dp(42), 0, dp(18))
+        }
+        section.addView(TextView(this).apply {
+            text = "Seus aplicativos"
+            textSize = 21f
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
             setTextColor(Color.WHITE)
-            setPadding(0, dp(38), 0, dp(16))
         })
+        section.addView(TextView(this).apply {
+            text = "Acesse rapidamente o que você mais usa"
+            textSize = 13f
+            setTextColor(Color.rgb(132, 148, 170))
+            setPadding(0, dp(5), 0, 0)
+        })
+        root.addView(section)
 
-        val grid = GridLayout(this).apply { columnCount = 5; alignmentMode = GridLayout.ALIGN_BOUNDS }
+        val grid = GridLayout(this).apply {
+            columnCount = 5
+            alignmentMode = GridLayout.ALIGN_BOUNDS
+            useDefaultMargins = false
+        }
         val apps = loadApps()
         if (apps.isEmpty()) {
             root.addView(TextView(this).apply {
@@ -84,19 +121,22 @@ class MainActivity : Activity() {
                 textSize = 16f
             })
         } else {
-            apps.forEachIndexed { index, app ->
+            apps.forEach { app ->
                 val tile = LinearLayout(this).apply {
                     orientation = LinearLayout.VERTICAL
                     gravity = Gravity.CENTER
-                    setPadding(dp(8), dp(12), dp(8), dp(12))
-                    background = rounded(Color.rgb(18, 22, 30), 14)
+                    setPadding(dp(8), dp(15), dp(8), dp(13))
+                    background = rounded(panel, 16)
                     isFocusable = true
                     isFocusableInTouchMode = true
                     setOnFocusChangeListener { view, focused ->
                         view.background = rounded(
-                            if (focused) Color.rgb(25, 42, 64) else Color.rgb(18, 22, 30),
-                            14, if (focused) blue else Color.TRANSPARENT
+                            if (focused) Color.rgb(31, 48, 68) else panel,
+                            16, if (focused) blue else Color.TRANSPARENT
                         )
+                        view.scaleX = if (focused) 1.035f else 1f
+                        view.scaleY = if (focused) 1.035f else 1f
+                        view.elevation = if (focused) dp(5).toFloat() else 0f
                     }
                     setOnClickListener {
                         packageManager.getLaunchIntentForPackage(app.activityInfo.packageName)?.let { startActivity(it) }
@@ -106,28 +146,43 @@ class MainActivity : Activity() {
                     setImageDrawable(app.loadIcon(packageManager))
                     scaleType = ImageView.ScaleType.FIT_CENTER
                 }
-                tile.addView(icon, LinearLayout.LayoutParams(dp(52), dp(52)))
+                tile.addView(icon, LinearLayout.LayoutParams(dp(54), dp(54)))
                 tile.addView(TextView(this).apply {
                     text = app.loadLabel(packageManager).toString()
-                    setTextColor(Color.WHITE)
+                    setTextColor(Color.rgb(230, 235, 243))
                     textSize = 13f
                     gravity = Gravity.CENTER
                     maxLines = 2
-                    setPadding(0, dp(9), 0, 0)
-                }, LinearLayout.LayoutParams(dp(112), -2))
+                    setPadding(0, dp(10), 0, 0)
+                }, LinearLayout.LayoutParams(dp(124), -2))
                 val params = GridLayout.LayoutParams().apply {
-                    width = dp(130); height = dp(126)
-                    setMargins(dp(4), dp(4), dp(12), dp(12))
+                    width = dp(142)
+                    height = dp(132)
+                    setMargins(dp(5), dp(5), dp(10), dp(10))
                 }
                 grid.addView(tile, params)
-                if (index == 0) tile.requestFocus()
             }
             root.addView(ScrollView(this).apply {
                 isFillViewport = true
+                clipToPadding = false
                 addView(grid)
             }, LinearLayout.LayoutParams(-1, 0, 1f))
+            grid.getChildAt(0)?.requestFocus()
         }
         setContentView(root)
+    }
+
+    private fun requestDefaultLauncher() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val roleManager = getSystemService(RoleManager::class.java)
+            if (roleManager != null && roleManager.isRoleAvailable(RoleManager.ROLE_HOME)) {
+                if (!roleManager.isRoleHeld(RoleManager.ROLE_HOME)) {
+                    startActivity(roleManager.createRequestRoleIntent(RoleManager.ROLE_HOME))
+                }
+            }
+        } else {
+            startActivity(Intent("android.settings.HOME_SETTINGS"))
+        }
     }
 
     private fun loadApps(): List<android.content.pm.ResolveInfo> {
