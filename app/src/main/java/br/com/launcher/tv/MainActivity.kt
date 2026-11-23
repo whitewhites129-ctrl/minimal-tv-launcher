@@ -25,9 +25,9 @@ import java.util.Date
 import java.util.Locale
 
 class MainActivity : Activity() {
-    private val bg = Color.rgb(7, 10, 16)
-    private val panel = Color.rgb(25, 33, 46)
-    private val blue = Color.rgb(105, 183, 255)
+    private val bg = Color.BLACK
+    private val panel = Color.rgb(12, 12, 14)
+    private val blue = Color.rgb(74, 190, 255)
     private lateinit var clock: TextView
     private lateinit var date: TextView
     private lateinit var grid: GridLayout
@@ -54,11 +54,8 @@ class MainActivity : Activity() {
     private fun buildScreen() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(64), dp(38), dp(64), dp(32))
-            background = GradientDrawable(
-                GradientDrawable.Orientation.TL_BR,
-                intArrayOf(Color.rgb(18, 29, 46), Color.rgb(9, 14, 23), bg)
-            )
+            setPadding(dp(52), dp(28), dp(52), dp(24))
+            setBackgroundColor(bg)
             layoutParams = ViewGroup.LayoutParams(-1, -1)
         }
 
@@ -68,28 +65,27 @@ class MainActivity : Activity() {
         }
         val left = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         clock = TextView(this).apply {
-            textSize = 48f
-            setTextColor(Color.rgb(248, 250, 255))
-            letterSpacing = 0.025f
-            typeface = Typeface.create("sans-serif-thin", Typeface.NORMAL)
+            textSize = 44f
+            setTextColor(Color.WHITE)
+            letterSpacing = 0.01f
+            typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
         }
         date = TextView(this).apply {
             textSize = 15f
-            setTextColor(Color.rgb(157, 174, 196))
-            setPadding(0, dp(2), 0, 0)
+            setTextColor(Color.rgb(205, 205, 210))
+            setPadding(0, dp(1), 0, 0)
         }
         left.addView(clock)
         left.addView(date)
         top.addView(left, LinearLayout.LayoutParams(0, -2, 1f))
-
         root.addView(top)
 
         root.addView(TextView(this).apply {
             text = "Aplicativos"
-            textSize = 22f
+            textSize = 20f
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-            setTextColor(Color.rgb(240, 245, 253))
-            setPadding(0, dp(46), 0, dp(24))
+            setTextColor(Color.WHITE)
+            setPadding(0, dp(34), 0, dp(13))
         })
 
         grid = GridLayout(this).apply {
@@ -131,18 +127,18 @@ class MainActivity : Activity() {
             val tile = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
-                setPadding(dp(8), dp(16), dp(8), dp(14))
-                background = rounded(panel, 20)
+                setPadding(dp(5), dp(9), dp(5), dp(8))
+                background = rounded(panel, 16)
                 isFocusable = true
                 isFocusableInTouchMode = true
                 setOnFocusChangeListener { view, focused ->
                     view.background = rounded(
-                        if (focused) Color.rgb(34, 58, 83) else panel,
-                        20, if (focused) blue else Color.TRANSPARENT
+                        if (focused) Color.rgb(10, 22, 32) else panel,
+                        16, if (focused) blue else Color.rgb(38, 38, 42)
                     )
-                    view.scaleX = if (focused) 1.045f else 1f
-                    view.scaleY = if (focused) 1.045f else 1f
-                    view.elevation = if (focused) dp(9).toFloat() else dp(1).toFloat()
+                    view.scaleX = if (focused) 1.035f else 1f
+                    view.scaleY = if (focused) 1.035f else 1f
+                    view.elevation = if (focused) dp(7).toFloat() else dp(1).toFloat()
                 }
                 setOnLongClickListener {
                     beginReorder(index)
@@ -174,19 +170,19 @@ class MainActivity : Activity() {
                 setImageDrawable(app.loadIcon(packageManager))
                 scaleType = ImageView.ScaleType.FIT_CENTER
             }
-            tile.addView(icon, LinearLayout.LayoutParams(dp(60), dp(60)))
+            tile.addView(icon, LinearLayout.LayoutParams(dp(44), dp(44)))
             tile.addView(TextView(this).apply {
                 text = app.loadLabel(packageManager).toString()
-                setTextColor(Color.rgb(235, 240, 248))
-                textSize = 13.5f
+                setTextColor(Color.rgb(245, 245, 248))
+                textSize = 13f
                 gravity = Gravity.CENTER
                 maxLines = 2
-                setPadding(0, dp(10), 0, 0)
-            }, LinearLayout.LayoutParams(dp(124), -2))
+                setPadding(0, dp(7), 0, 0)
+            }, LinearLayout.LayoutParams(dp(108), -2))
             val params = GridLayout.LayoutParams().apply {
-                width = dp(148)
-                height = dp(142)
-                setMargins(dp(7), dp(7), dp(9), dp(9))
+                width = dp(126)
+                height = dp(104)
+                setMargins(dp(6), dp(6), dp(6), dp(6))
             }
             grid.addView(tile, params)
         }
@@ -197,7 +193,7 @@ class MainActivity : Activity() {
         reorderMode = true
         movingIndex = index
         Toast.makeText(this, "Organizar: use as setas e OK para salvar", Toast.LENGTH_LONG).show()
-        grid.getChildAt(index)?.background = rounded(Color.rgb(38, 66, 91), 16, blue)
+        grid.getChildAt(index)?.background = rounded(Color.rgb(10, 22, 32), 16, blue)
     }
 
     private fun moveItem(offset: Int) {
@@ -208,7 +204,7 @@ class MainActivity : Activity() {
         appItems.add(target, item)
         movingIndex = target
         rebuildGrid(target)
-        grid.getChildAt(target)?.background = rounded(Color.rgb(38, 66, 91), 16, blue)
+        grid.getChildAt(target)?.background = rounded(Color.rgb(10, 22, 32), 16, blue)
     }
 
     private fun finishReorder() {
@@ -280,7 +276,7 @@ class MainActivity : Activity() {
     private fun updateClock() {
         val now = Date()
         clock.text = SimpleDateFormat("HH:mm", Locale.getDefault()).format(now)
-        date.text = SimpleDateFormat("EEEE, d 'de' MMMM", Locale("pt", "BR")).format(now)
+        date.text = SimpleDateFormat("EEE, d 'de' MMM", Locale("pt", "BR")).format(now)
     }
 
     private fun rounded(color: Int, radius: Int, stroke: Int = Color.TRANSPARENT) =
