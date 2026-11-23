@@ -2,7 +2,7 @@ package br.com.launcher.tv
 
 import android.app.Activity
 import android.content.Intent
-import android.content.pm.PackageManager
+import android.content.pm.ResolveInfo
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -27,353 +27,416 @@ import java.util.Date
 import java.util.Locale
 
 class MainActivity : Activity() {
-    private val black = Color.rgb(0, 0, 0)
-    private val card = Color.rgb(17, 17, 19)
-    private val blue = Color.rgb(42, 183, 255)
+    private val accent = Color.rgb(45, 205, 255)
+    private val apps = mutableListOf<ResolveInfo>()
+    private val prefs by lazy { getSharedPreferences("launcher_v2", MODE_PRIVATE) }
     private lateinit var clock: TextView
     private lateinit var date: TextView
     private lateinit var weatherIcon: TextView
-    private lateinit var weatherInfo: TextView
-    private lateinit var grid: GridLayout
-    private lateinit var root: LinearLayout
-    private val apps = mutableListOf<android.content.pm.ResolveInfo>()
-    private val prefs by lazy { getSharedPreferences("launcher_order", MODE_PRIVATE) }
-    private var reorderMode = false
-    private var movingIndex = -1
+    private lateinit var weatherText: TextView
+    private lateinit var appGrid: GridLayout
     private var showingAll = false
+    private var organizing = false
+    private var moving = -1
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_FULLSCREEN or
             View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-        apps.addAll(loadApps())
-        applySavedOrder()
-        buildScreen()
-        updateClock()
-        loadWeather()
+        apps.addAll(findApps())
+        restoreOrder()
+        createHome()
+        refreshClock()
+        refreshWeather()
         clock.postDelayed(object : Runnable {
-            override fun run() { updateClock(); clock.postDelayed(this, 30000) }
+            override fun run() { refreshClock(); clock.postDelayed(this, 30000) }
         }, 30000)
     }
 
-    private fun buildScreen() {
-        root = LinearLayout(this).apply {
+    override fun onResume() {
+        super.onResume()
+        if (::appGrid.isInitialized) {
+            val fresh = findApps()
+            if (fresh.map { it.activityInfo.packageName } != apps.map { it.activityInfo.packageName }) {
+                apps.clear(); apps.addAll(fresh); restoreOrder(); renderApps()
+            }
+        }
+    }
+
+    private fun createHome() {
+        val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(48), dp(22), dp(48), dp(20))
-            setBackgroundColor(black)
+            setPadding(dp(52), dp(28), dp(52), dp(28))
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                intArrayOf(Color.rgb(5, 15, 36), Color.rgb(8, 39, 83), Color.rgb(5, 18, 43))
+            )
             layoutParams = ViewGroup.LayoutParams(-1, -1)
         }
-        root.addView(buildHeader(), LinearLayout.LayoutParams(-1, dp(112)))
-        grid = GridLayout(this).apply {
+        root.addView(createHeader(), LinearLayout.LayoutParams(-1, dp(116)))
+
+        val center = FrameLayout(this)
+        appGrid = GridLayout(this).apply {
             columnCount = 5
-            alignmentMode = GridLayout.ALIGN_BOUNDS
             useDefaultMargins = false
+            alignmentMode = GridLayout.ALIGN_BOUNDS
         }
-        val gridFrame = FrameLayout(this)
-        gridFrame.addView(grid, FrameLayout.LayoutParams(-1, -2, Gravity.TOP or Gravity.CENTER_HORIZONTAL))
-        root.addView(gridFrame, LinearLayout.LayoutParams(-1, 0, 1f))
-        root.addView(buildFooter(), LinearLayout.LayoutParams(-1, dp(32)))
+        center.addView(appGrid, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
+        root.addView(center, LinearLayout.LayoutParams(-1, 0, 1f))
         setContentView(root)
-        rebuildGrid()
+        renderApps()
     }
 
-    private fun buildHeader(): View {
-        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        val timeBlock = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+    private fun createHeader(): View {
+        val header = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        val time = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         clock = TextView(this).apply {
-            textSize = 43f; setTextColor(Color.WHITE)
+            textSize = 46f
+            setTextColor(Color.WHITE)
             typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
         }
-        date = TextView(this).apply { textSize = 15f; setTextColor(Color.rgb(220,220,220)) }
-        timeBlock.addView(clock); timeBlock.addView(date); row.addView(timeBlock)
-        row.addView(separator(), LinearLayout.LayoutParams(dp(1), dp(68)).apply { setMargins(dp(22), 0, dp(22), 0) })
+        date = TextView(this).apply {
+            textSize = 15f
+            setTextColor(Color.rgb(215, 228, 245))
+        }
+        time.addView(clock); time.addView(date)
+        header.addView(time)
+        header.addView(View(this).apply { setBackgroundColor(Color.argb(130,255,255,255)) },
+            LinearLayout.LayoutParams(dp(1), dp(66)).apply { setMargins(dp(24), 0, dp(24), 0) })
 
-        val weather = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        weatherIcon = TextView(this).apply { text = "☀"; textSize = 43f; setTextColor(Color.rgb(255,190,28)) }
-        weather.addView(weatherIcon)
-        val climateText = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(14),0,0,0) }
-        climateText.addView(TextView(this).apply {
-            text = "São Bernardo do Campo"; textSize = 20f; setTextColor(Color.WHITE)
+        val weatherBlock = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        weatherIcon = TextView(this).apply {
+            text = "☁"
+            textSize = 42f
+            setTextColor(Color.WHITE)
+        }
+        val weatherLabels = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(14), 0, 0, 0)
+        }
+        weatherLabels.addView(TextView(this).apply {
+            text = "São Bernardo do Campo"
+            textSize = 19f
+            setTextColor(Color.WHITE)
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
         })
-        weatherInfo = TextView(this).apply { text = "Buscando previsão do tempo…"; textSize = 14f; setTextColor(Color.LTGRAY) }
-        climateText.addView(weatherInfo)
-        weather.addView(climateText)
-        row.addView(weather, LinearLayout.LayoutParams(0, -2, 1f))
+        weatherText = TextView(this).apply {
+            text = "Carregando previsão…"
+            textSize = 14f
+            setTextColor(Color.rgb(220, 233, 250))
+        }
+        weatherLabels.addView(weatherText)
+        weatherBlock.addView(weatherIcon)
+        weatherBlock.addView(weatherLabels)
+        weatherBlock.isFocusable = true
+        weatherBlock.setOnClickListener { refreshWeather() }
+        header.addView(weatherBlock, LinearLayout.LayoutParams(0, -2, 1f))
 
-        row.addView(headerAction("🎙", "Pesquisa por voz") { launchVoiceSearch() })
-        row.addView(headerAction("⌁", "Configurações de Wi-Fi") {
-            openSettings(Intent(Settings.ACTION_WIFI_SETTINGS))
+        header.addView(actionButton(android.R.drawable.ic_btn_speak_now, "Pesquisa por voz") { openVoice() })
+        header.addView(actionButton(android.R.drawable.ic_menu_manage, "Configurações") {
+            openIntent(Intent(Settings.ACTION_SETTINGS))
         })
-        row.addView(headerAction("⚙", "Configurações") {
-            openSettings(Intent(Settings.ACTION_SETTINGS))
+        header.addView(actionButton(android.R.drawable.ic_menu_preferences, "Wi-Fi") {
+            openIntent(Intent(Settings.ACTION_WIFI_SETTINGS))
         })
-        return row
+        return header
     }
 
-    private fun launchVoiceSearch() {
-        val candidates = listOf(
+    private fun actionButton(iconRes: Int, description: String, action: () -> Unit): View {
+        val button = ImageView(this).apply {
+            setImageResource(iconRes)
+            imageTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
+            contentDescription = description
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            isFocusable = true
+            isClickable = true
+            setPadding(dp(15), dp(15), dp(15), dp(15))
+            background = rounded(Color.TRANSPARENT, 16, Color.TRANSPARENT)
+            setOnClickListener { action() }
+            setOnFocusChangeListener { v, focused ->
+                v.background = rounded(if (focused) Color.rgb(18, 67, 105) else Color.TRANSPARENT,
+                    16, if (focused) accent else Color.TRANSPARENT)
+            }
+        }
+        return button
+    }
+
+    private fun openVoice() {
+        val intents = listOf(
+            Intent(Intent.ACTION_ASSIST),
             Intent("android.intent.action.VOICE_ASSIST"),
             Intent("android.intent.action.VOICE_COMMAND"),
             Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
         )
-        for (intent in candidates) {
+        for (intent in intents) {
             try {
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 if (intent.resolveActivity(packageManager) != null) {
                     startActivity(intent)
                     return
                 }
             } catch (_: Exception) { }
         }
-        Toast.makeText(this, "Pesquisa por voz não disponível neste dispositivo", Toast.LENGTH_LONG).show()
+        Toast.makeText(this, "O serviço de voz do Google não está disponível", Toast.LENGTH_LONG).show()
     }
 
-    private fun openSettings(intent: Intent) {
+    private fun openIntent(intent: Intent) {
         try { startActivity(intent) }
         catch (_: Exception) {
-            try { startActivity(Intent(Settings.ACTION_SETTINGS)) } catch (_: Exception) {
-                Toast.makeText(this, "Configuração indisponível", Toast.LENGTH_SHORT).show()
-            }
+            try { startActivity(Intent(Settings.ACTION_SETTINGS)) }
+            catch (_: Exception) { Toast.makeText(this, "Não foi possível abrir as configurações", Toast.LENGTH_SHORT).show() }
         }
     }
 
-    private fun loadWeather() {
-        Thread {
-            var result = "Não foi possível carregar o clima"
-            var icon = "☁"
-            try {
-                val url = URL("https://api.open-meteo.com/v1/forecast?latitude=-23.69&longitude=-46.56&current=temperature_2m,weather_code,is_day&timezone=America%2FSao_Paulo")
-                val connection = (url.openConnection() as HttpURLConnection).apply {
-                    connectTimeout = 7000; readTimeout = 7000; requestMethod = "GET"
-                }
-                val body = connection.inputStream.bufferedReader().use { it.readText() }
-                connection.disconnect()
-                val current = JSONObject(body).getJSONObject("current")
-                val temp = current.getDouble("temperature_2m").toInt()
-                val code = current.getInt("weather_code")
-                val day = current.optInt("is_day", 1) == 1
-                val description = when (code) {
-                    0 -> "Céu limpo"
-                    1 -> "Predominantemente limpo"
-                    2 -> "Parcialmente nublado"
-                    3 -> "Nublado"
-                    45, 48 -> "Neblina"
-                    51, 53, 55, 56, 57 -> "Garoa"
-                    61, 63, 65, 66, 67 -> "Chuva"
-                    71, 73, 75, 77 -> "Neve"
-                    80, 81, 82 -> "Pancadas de chuva"
-                    85, 86 -> "Neve"
-                    95, 96, 99 -> "Trovoadas"
-                    else -> "Condição atual"
-                }
-                icon = when {
-                    code >= 95 -> "⛈"
-                    code in 51..67 || code in 80..82 -> "🌧"
-                    code in 45..48 -> "🌫"
-                    code in 2..3 -> "☁"
-                    code == 0 && day -> "☀"
-                    code == 0 -> "☾"
-                    else -> "🌤"
-                }
-                result = "$temp°C  •  $description"
-            } catch (_: Exception) { }
-            val finalResult = result
-            val finalIcon = icon
-            runOnUiThread {
-                weatherInfo.text = finalResult
-                weatherIcon.text = finalIcon
-            }
-        }.start()
-    }
-
-    private fun headerAction(symbol: String, description: String, action: () -> Unit): View {
-        return TextView(this).apply {
-            text = symbol; contentDescription = description; textSize = 31f
-            setTextColor(Color.WHITE); gravity = Gravity.CENTER
-            isFocusable = true
-            setPadding(dp(13), dp(8), dp(13), dp(8))
-            setOnClickListener { action() }
-            setOnFocusChangeListener { v, focused ->
-                v.background = if (focused) rounded(Color.rgb(30,45,58), 12, blue) else null
-            }
-        }
-    }
-
-    private fun separator() = View(this).apply { setBackgroundColor(Color.rgb(100,100,100)) }
-
-    private fun buildFooter(): View {
-        return LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.END or Gravity.CENTER_VERTICAL
-            addView(TextView(this@MainActivity).apply {
-                text = "●"; textSize = 14f; setTextColor(Color.WHITE); setPadding(dp(8),0,dp(8),0)
-            })
-            addView(TextView(this@MainActivity).apply {
-                text = "●"; textSize = 14f; setTextColor(Color.DKGRAY); setPadding(dp(8),0,dp(8),0)
-            })
-        }
-    }
-
-    private fun rebuildGrid(focusIndex: Int = 0) {
-        grid.removeAllViews()
-        val display = if (showingAll) apps.toList() else apps.take(8)
-        val width = ((resources.displayMetrics.widthPixels / resources.displayMetrics.density).toInt() - 96) / 5
-        val tileWidth = width - 12
-        if (showingAll) {
-            grid.columnCount = 5
-            display.forEachIndexed { i, app -> addAppTile(app, i, tileWidth, dp(126), i / 5, i % 5) }
-        } else {
-            grid.columnCount = 5
-            display.take(5).forEachIndexed { i, app -> addAppTile(app, i, tileWidth, dp(126), 0, i) }
-            val spacerParams = GridLayout.LayoutParams(GridLayout.spec(1), GridLayout.spec(0))
-            spacerParams.width = tileWidth; spacerParams.height = dp(140)
-            grid.addView(View(this), spacerParams)
-            display.drop(5).take(3).forEachIndexed { i, app -> addAppTile(app, i + 5, tileWidth, dp(126), 1, i + 1) }
-            addAppsTile(tileWidth, 1, 4)
-        }
-        if (grid.childCount > 0) grid.getChildAt(focusIndex.coerceIn(0, grid.childCount - 1))?.requestFocus()
-    }
-
-    private fun addAppTile(app: android.content.pm.ResolveInfo, index: Int, width: Int, height: Int, row: Int, col: Int) {
-        val tile = makeTile(index)
-        val icon = ImageView(this).apply {
-            setImageDrawable(app.loadIcon(packageManager))
-            scaleType = ImageView.ScaleType.FIT_CENTER
-        }
-        tile.addView(icon, LinearLayout.LayoutParams(dp(68), dp(68)))
-        tile.addView(TextView(this).apply {
-            text = app.loadLabel(packageManager).toString()
-            setTextColor(Color.WHITE); textSize = 15f; gravity = Gravity.CENTER
-            maxLines = 2; setPadding(0, dp(5), 0, 0)
-        }, LinearLayout.LayoutParams(-1, -2))
-        tile.contentDescription = app.loadLabel(packageManager).toString()
-        tile.setOnClickListener { launchApp(app) }
-        tile.setOnLongClickListener { if (!showingAll) { beginReorder(index); true } else false }
-        val lp = GridLayout.LayoutParams(GridLayout.spec(row), GridLayout.spec(col))
-        lp.width = width; lp.height = height
-        lp.setMargins(dp(7), dp(7), dp(7), dp(7))
-        grid.addView(tile, lp)
-    }
-
-    private fun launchApp(app: android.content.pm.ResolveInfo) {
-        try {
-            val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
-            intent.setClassName(app.activityInfo.packageName, app.activityInfo.name)
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            startActivity(intent)
-        } catch (_: Exception) {
-            try { startActivity(packageManager.getLaunchIntentForPackage(app.activityInfo.packageName)) }
-            catch (_: Exception) { Toast.makeText(this, "Não foi possível abrir este aplicativo", Toast.LENGTH_SHORT).show() }
-        }
-    }
-
-    private fun addAppsTile(width: Int, row: Int, col: Int) {
-        val tile = makeTile(8)
-        tile.addView(TextView(this).apply {
-            text = "▦"; textSize = 58f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
-        }, LinearLayout.LayoutParams(dp(68), dp(68)))
-        tile.addView(TextView(this).apply {
-            text = "Todos os apps"; textSize = 15f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
-        })
-        tile.contentDescription = "Todos os aplicativos"
-        tile.setOnClickListener { showingAll = true; rebuildGrid() }
-        val lp = GridLayout.LayoutParams(GridLayout.spec(row), GridLayout.spec(col))
-        lp.width = width; lp.height = dp(126)
-        lp.setMargins(dp(7), dp(7), dp(7), dp(7))
-        grid.addView(tile, lp)
-    }
-
-    private fun makeTile(index: Int): LinearLayout {
-        return LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
-            setPadding(dp(8), dp(10), dp(8), dp(8))
-            background = rounded(card, 18, Color.rgb(43,43,45))
-            isFocusable = true; isFocusableInTouchMode = true
-            setOnFocusChangeListener { v, focused ->
-                v.background = rounded(if (focused) Color.rgb(8,22,32) else card, 18,
-                    if (focused) blue else Color.rgb(43,43,45))
-                v.elevation = if (focused) dp(8).toFloat() else 0f
-            }
-            setOnKeyListener { _, key, event ->
-                if (reorderMode && event.action == KeyEvent.ACTION_DOWN) {
-                    when (key) {
-                        KeyEvent.KEYCODE_DPAD_LEFT -> { moveItem(-1); true }
-                        KeyEvent.KEYCODE_DPAD_RIGHT -> { moveItem(1); true }
-                        KeyEvent.KEYCODE_DPAD_UP -> { moveItem(-5); true }
-                        KeyEvent.KEYCODE_DPAD_DOWN -> { moveItem(5); true }
-                        KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> { finishReorder(); true }
-                        KeyEvent.KEYCODE_BACK -> { cancelReorder(); true }
-                        else -> false
-                    }
-                } else false
-            }
-        }
-    }
-
-    private fun beginReorder(index: Int) {
-        reorderMode = true; movingIndex = index
-        Toast.makeText(this, "Organizar: use as setas e OK para salvar", Toast.LENGTH_LONG).show()
-    }
-
-    private fun moveItem(offset: Int) {
-        if (!reorderMode || movingIndex !in apps.indices) return
-        val target = (movingIndex + offset).coerceIn(0, apps.lastIndex)
-        if (target == movingIndex) return
-        val item = apps.removeAt(movingIndex); apps.add(target, item); movingIndex = target
-        rebuildGrid(target)
-    }
-
-    private fun finishReorder() {
-        if (!reorderMode) return
-        reorderMode = false; movingIndex = -1
-        prefs.edit().putString("packages", apps.joinToString("|") { it.activityInfo.packageName }).apply()
-        Toast.makeText(this, "Ordem salva", Toast.LENGTH_SHORT).show()
-        rebuildGrid()
-    }
-
-    private fun cancelReorder() {
-        reorderMode = false; movingIndex = -1; applySavedOrder(); rebuildGrid()
-    }
-
-    override fun onBackPressed() {
-        if (showingAll) { showingAll = false; rebuildGrid(); return }
-        super.onBackPressed()
-    }
-
-    private fun loadApps(): List<android.content.pm.ResolveInfo> {
-        val found = LinkedHashMap<String, android.content.pm.ResolveInfo>()
-        listOf(
-            Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER),
-            Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
-        ).forEach { intent ->
-            @Suppress("DEPRECATION")
-            packageManager.queryIntentActivities(intent, PackageManager.MATCH_ALL).forEach { info ->
-                val pkg = info.activityInfo?.packageName ?: return@forEach
-                if (pkg != packageName) found[pkg] = info
-            }
-        }
-        return found.values.sortedBy { it.loadLabel(packageManager).toString().lowercase(Locale.getDefault()) }
-    }
-
-    private fun applySavedOrder() {
-        val saved = prefs.getString("packages", null)?.split("|") ?: return
-        val byPackage = apps.associateBy { it.activityInfo.packageName }
-        val ordered = saved.mapNotNull { byPackage[it] }.toMutableList()
-        apps.filter { it.activityInfo.packageName !in saved }.forEach { ordered.add(it) }
-        apps.clear(); apps.addAll(ordered)
-    }
-
-    private fun updateClock() {
+    private fun refreshClock() {
         val now = Date()
         clock.text = SimpleDateFormat("HH:mm", Locale.getDefault()).format(now)
         date.text = SimpleDateFormat("EEE, d 'de' MMM", Locale("pt", "BR")).format(now)
     }
 
-    private fun rounded(color: Int, radius: Int, stroke: Int = Color.TRANSPARENT) =
-        GradientDrawable().apply {
-            setColor(color); cornerRadius = dp(radius).toFloat()
-            if (stroke != Color.TRANSPARENT) setStroke(dp(2), stroke)
+    private fun refreshWeather() {
+        weatherText.text = "Atualizando previsão…"
+        Thread {
+            var label = "Clima indisponível — toque para tentar novamente"
+            var symbol = "☁"
+            try {
+                val address = URL("https://api.open-meteo.com/v1/forecast?latitude=-23.6914&longitude=-46.5650&current=temperature_2m,relative_humidity_2m,weather_code,is_day&timezone=America%2FSao_Paulo")
+                val connection = (address.openConnection() as HttpURLConnection).apply {
+                    connectTimeout = 12000
+                    readTimeout = 12000
+                    requestMethod = "GET"
+                    setRequestProperty("Accept", "application/json")
+                }
+                val response = connection.inputStream.bufferedReader().use { it.readText() }
+                connection.disconnect()
+                val current = JSONObject(response).getJSONObject("current")
+                val temperature = current.getDouble("temperature_2m").toInt()
+                val humidity = current.getInt("relative_humidity_2m")
+                val code = current.getInt("weather_code")
+                val description = when (code) {
+                    0 -> "Céu limpo"
+                    1 -> "Poucas nuvens"
+                    2 -> "Parcialmente nublado"
+                    3 -> "Nublado"
+                    45, 48 -> "Neblina"
+                    51, 53, 55, 56, 57 -> "Garoa"
+                    61, 63, 65, 66, 67 -> "Chuva"
+                    80, 81, 82 -> "Pancadas de chuva"
+                    95, 96, 99 -> "Trovoadas"
+                    else -> "Condição atual"
+                }
+                symbol = when {
+                    code >= 95 -> "⛈"
+                    code in 51..67 || code in 80..82 -> "🌧"
+                    code == 45 || code == 48 -> "🌫"
+                    code == 0 -> if (current.optInt("is_day", 1) == 1) "☀" else "☾"
+                    code in 2..3 -> "☁"
+                    else -> "🌤"
+                }
+                label = "$temperature°C  •  $description  •  Umidade $humidity%"
+            } catch (_: Exception) { }
+            val finalLabel = label
+            val finalSymbol = symbol
+            runOnUiThread {
+                weatherText.text = finalLabel
+                weatherIcon.text = finalSymbol
+            }
+        }.start()
+    }
+
+    private fun renderApps(focus: Int = 0) {
+        appGrid.removeAllViews()
+        appGrid.columnCount = 5
+        val screenWidth = (resources.displayMetrics.widthPixels / resources.displayMetrics.density).toInt()
+        val available = screenWidth - 104
+        val tileWidth = (available / 5).coerceIn(dp(142), dp(220))
+        val tileHeight = dp(158)
+        val visible = if (showingAll) apps.toList() else apps.take(8)
+        if (showingAll) {
+            visible.forEachIndexed { index, app ->
+                addAppCard(app, index, tileWidth, tileHeight, index / 5, index % 5)
+            }
+        } else {
+            visible.take(5).forEachIndexed { index, app ->
+                addAppCard(app, index, tileWidth, tileHeight, 0, index)
+            }
+            visible.drop(5).take(3).forEachIndexed { index, app ->
+                addAppCard(app, index + 5, tileWidth, tileHeight, 1, index + 1)
+            }
+            addAllAppsCard(tileWidth, tileHeight, 1, 4)
         }
+        if (appGrid.childCount > 0) {
+            val actual = focus.coerceIn(0, appGrid.childCount - 1)
+            appGrid.getChildAt(actual)?.requestFocus()
+        }
+    }
+
+    private fun addAppCard(app: ResolveInfo, index: Int, width: Int, height: Int, row: Int, col: Int) {
+        val card = createCard()
+        val icon = ImageView(this).apply {
+            setImageDrawable(app.loadIcon(packageManager))
+            scaleType = ImageView.ScaleType.FIT_CENTER
+        }
+        card.addView(icon, LinearLayout.LayoutParams(dp(76), dp(76)))
+        card.addView(TextView(this).apply {
+            text = app.loadLabel(packageManager).toString()
+            textSize = 15f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            maxLines = 2
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            setPadding(dp(2), dp(8), dp(2), 0)
+        }, LinearLayout.LayoutParams(-1, -2))
+        card.contentDescription = app.loadLabel(packageManager).toString()
+        card.setOnClickListener { launch(app) }
+        card.setOnLongClickListener {
+            if (!showingAll) {
+                organizing = true
+                moving = index
+                Toast.makeText(this, "Use as setas para mover e OK para salvar", Toast.LENGTH_LONG).show()
+                true
+            } else false
+        }
+        card.setOnKeyListener { _, key, event ->
+            if (organizing && event.action == KeyEvent.ACTION_DOWN) {
+                when (key) {
+                    KeyEvent.KEYCODE_DPAD_LEFT -> { move(-1); true }
+                    KeyEvent.KEYCODE_DPAD_RIGHT -> { move(1); true }
+                    KeyEvent.KEYCODE_DPAD_UP -> { move(-5); true }
+                    KeyEvent.KEYCODE_DPAD_DOWN -> { move(5); true }
+                    KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> { saveOrder(); true }
+                    KeyEvent.KEYCODE_BACK -> { organizing = false; restoreOrder(); renderApps(); true }
+                    else -> false
+                }
+            } else false
+        }
+        addGridCard(card, width, height, row, col)
+    }
+
+    private fun createCard(): LinearLayout = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        gravity = Gravity.CENTER
+        setPadding(dp(10), dp(12), dp(10), dp(10))
+        background = rounded(Color.rgb(13, 35, 65), 20, Color.rgb(83, 147, 197))
+        isFocusable = true
+        isFocusableInTouchMode = true
+        isClickable = true
+        setOnFocusChangeListener { view, focused ->
+            view.background = rounded(
+                if (focused) Color.rgb(9, 65, 103) else Color.rgb(13, 35, 65),
+                20,
+                if (focused) accent else Color.rgb(83, 147, 197)
+            )
+            view.elevation = if (focused) dp(9).toFloat() else 0f
+        }
+    }
+
+    private fun addAllAppsCard(width: Int, height: Int, row: Int, col: Int) {
+        val card = createCard()
+        card.addView(TextView(this).apply {
+            text = "▦"
+            textSize = 62f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+        }, LinearLayout.LayoutParams(dp(76), dp(76)))
+        card.addView(TextView(this).apply {
+            text = "Todos os apps"
+            textSize = 15f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        })
+        card.contentDescription = "Todos os aplicativos"
+        card.setOnClickListener { showingAll = true; renderApps() }
+        addGridCard(card, width, height, row, col)
+    }
+
+    private fun addGridCard(view: View, width: Int, height: Int, row: Int, col: Int) {
+        val params = GridLayout.LayoutParams(GridLayout.spec(row), GridLayout.spec(col))
+        params.width = width
+        params.height = height
+        params.setMargins(dp(9), dp(9), dp(9), dp(9))
+        appGrid.addView(view, params)
+    }
+
+    private fun launch(app: ResolveInfo) {
+        try {
+            val launchIntent = packageManager.getLaunchIntentForPackage(app.activityInfo.packageName)
+            if (launchIntent != null) startActivity(launchIntent)
+            else {
+                val intent = Intent(Intent.ACTION_MAIN)
+                    .addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER)
+                    .setClassName(app.activityInfo.packageName, app.activityInfo.name)
+                startActivity(intent)
+            }
+        } catch (_: Exception) {
+            Toast.makeText(this, "Não foi possível abrir este aplicativo", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun findApps(): List<ResolveInfo> {
+        val result = LinkedHashMap<String, ResolveInfo>()
+        val queries = listOf(
+            Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER),
+            Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        )
+        for (query in queries) {
+            @Suppress("DEPRECATION")
+            packageManager.queryIntentActivities(query, PackageManager.MATCH_ALL).forEach { info ->
+                val packageName = info.activityInfo?.packageName ?: return@forEach
+                if (packageName != packageNameOfSelf()) result.putIfAbsent(packageName, info)
+            }
+        }
+        return result.values.sortedBy { it.loadLabel(packageManager).toString().lowercase(Locale.getDefault()) }
+    }
+
+    private fun packageNameOfSelf() = "br.com.launcher.tv"
+
+    private fun restoreOrder() {
+        val saved = prefs.getString("order", null)?.split("|") ?: return
+        val byPackage = apps.associateBy { it.activityInfo.packageName }
+        val ordered = saved.mapNotNull { byPackage[it] }.toMutableList()
+        apps.filter { it.activityInfo.packageName !in saved }.forEach { ordered.add(it) }
+        apps.clear()
+        apps.addAll(ordered)
+    }
+
+    private fun saveOrder() {
+        organizing = false
+        moving = -1
+        prefs.edit().putString("order", apps.joinToString("|") { it.activityInfo.packageName }).apply()
+        Toast.makeText(this, "Ordem salva", Toast.LENGTH_SHORT).show()
+        renderApps()
+    }
+
+    private fun move(offset: Int) {
+        if (!organizing || moving !in apps.indices) return
+        val target = (moving + offset).coerceIn(0, apps.lastIndex)
+        if (target == moving) return
+        val item = apps.removeAt(moving)
+        apps.add(target, item)
+        moving = target
+        renderApps(target)
+    }
+
+    override fun onBackPressed() {
+        if (showingAll) {
+            showingAll = false
+            renderApps()
+        } else super.onBackPressed()
+    }
+
+    private fun rounded(color: Int, radius: Int, stroke: Int) = GradientDrawable().apply {
+        setColor(color)
+        cornerRadius = dp(radius).toFloat()
+        if (stroke != Color.TRANSPARENT) setStroke(dp(2), stroke)
+    }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 }
