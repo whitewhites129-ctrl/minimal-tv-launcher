@@ -19,6 +19,9 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -29,6 +32,8 @@ class MainActivity : Activity() {
     private val blue = Color.rgb(42, 183, 255)
     private lateinit var clock: TextView
     private lateinit var date: TextView
+    private lateinit var weatherIcon: TextView
+    private lateinit var weatherInfo: TextView
     private lateinit var grid: GridLayout
     private lateinit var root: LinearLayout
     private val apps = mutableListOf<android.content.pm.ResolveInfo>()
@@ -45,6 +50,7 @@ class MainActivity : Activity() {
         applySavedOrder()
         buildScreen()
         updateClock()
+        loadWeather()
         clock.postDelayed(object : Runnable {
             override fun run() { updateClock(); clock.postDelayed(this, 30000) }
         }, 30000)
@@ -66,7 +72,7 @@ class MainActivity : Activity() {
         val gridFrame = FrameLayout(this)
         gridFrame.addView(grid, FrameLayout.LayoutParams(-1, -2, Gravity.TOP or Gravity.CENTER_HORIZONTAL))
         root.addView(gridFrame, LinearLayout.LayoutParams(-1, 0, 1f))
-        root.addView(buildFooter(), LinearLayout.LayoutParams(-1, dp(92)))
+        root.addView(buildFooter(), LinearLayout.LayoutParams(-1, dp(32)))
         setContentView(root)
         rebuildGrid()
     }
@@ -79,36 +85,105 @@ class MainActivity : Activity() {
             typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
         }
         date = TextView(this).apply { textSize = 15f; setTextColor(Color.rgb(220,220,220)) }
-        timeBlock.addView(clock)
-        timeBlock.addView(date)
-        row.addView(timeBlock)
+        timeBlock.addView(clock); timeBlock.addView(date); row.addView(timeBlock)
         row.addView(separator(), LinearLayout.LayoutParams(dp(1), dp(68)).apply { setMargins(dp(22), 0, dp(22), 0) })
 
         val weather = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        val sun = TextView(this).apply { text = "☀"; textSize = 43f; setTextColor(Color.rgb(255,190,28)) }
-        weather.addView(sun)
+        weatherIcon = TextView(this).apply { text = "☀"; textSize = 43f; setTextColor(Color.rgb(255,190,28)) }
+        weather.addView(weatherIcon)
         val climateText = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(14),0,0,0) }
         climateText.addView(TextView(this).apply {
-            text = "Clima"; textSize = 22f; setTextColor(Color.WHITE)
+            text = "São Bernardo do Campo"; textSize = 20f; setTextColor(Color.WHITE)
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
         })
-        climateText.addView(TextView(this).apply {
-            text = "Configure a previsão do tempo"; textSize = 14f; setTextColor(Color.LTGRAY)
-        })
+        weatherInfo = TextView(this).apply { text = "Buscando previsão do tempo…"; textSize = 14f; setTextColor(Color.LTGRAY) }
+        climateText.addView(weatherInfo)
         weather.addView(climateText)
         row.addView(weather, LinearLayout.LayoutParams(0, -2, 1f))
 
-        row.addView(headerAction("🎙", "Pesquisa por voz") {
-            try { startActivity(Intent("android.intent.action.VOICE_COMMAND")) }
-            catch (_: Exception) { Toast.makeText(this, "Pesquisa por voz indisponível", Toast.LENGTH_SHORT).show() }
-        })
+        row.addView(headerAction("🎙", "Pesquisa por voz") { launchVoiceSearch() })
         row.addView(headerAction("⌁", "Configurações de Wi-Fi") {
-            try { startActivity(Intent(Settings.ACTION_WIFI_SETTINGS)) } catch (_: Exception) { }
+            openSettings(Intent(Settings.ACTION_WIFI_SETTINGS))
         })
         row.addView(headerAction("⚙", "Configurações") {
-            try { startActivity(Intent(Settings.ACTION_SETTINGS)) } catch (_: Exception) { }
+            openSettings(Intent(Settings.ACTION_SETTINGS))
         })
         return row
+    }
+
+    private fun launchVoiceSearch() {
+        val candidates = listOf(
+            Intent("android.intent.action.VOICE_ASSIST"),
+            Intent("android.intent.action.VOICE_COMMAND"),
+            Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+        )
+        for (intent in candidates) {
+            try {
+                if (intent.resolveActivity(packageManager) != null) {
+                    startActivity(intent)
+                    return
+                }
+            } catch (_: Exception) { }
+        }
+        Toast.makeText(this, "Pesquisa por voz não disponível neste dispositivo", Toast.LENGTH_LONG).show()
+    }
+
+    private fun openSettings(intent: Intent) {
+        try { startActivity(intent) }
+        catch (_: Exception) {
+            try { startActivity(Intent(Settings.ACTION_SETTINGS)) } catch (_: Exception) {
+                Toast.makeText(this, "Configuração indisponível", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun loadWeather() {
+        Thread {
+            var result = "Não foi possível carregar o clima"
+            var icon = "☁"
+            try {
+                val url = URL("https://api.open-meteo.com/v1/forecast?latitude=-23.69&longitude=-46.56&current=temperature_2m,weather_code,is_day&timezone=America%2FSao_Paulo")
+                val connection = (url.openConnection() as HttpURLConnection).apply {
+                    connectTimeout = 7000; readTimeout = 7000; requestMethod = "GET"
+                }
+                val body = connection.inputStream.bufferedReader().use { it.readText() }
+                connection.disconnect()
+                val current = JSONObject(body).getJSONObject("current")
+                val temp = current.getDouble("temperature_2m").toInt()
+                val code = current.getInt("weather_code")
+                val day = current.optInt("is_day", 1) == 1
+                val description = when (code) {
+                    0 -> "Céu limpo"
+                    1 -> "Predominantemente limpo"
+                    2 -> "Parcialmente nublado"
+                    3 -> "Nublado"
+                    45, 48 -> "Neblina"
+                    51, 53, 55, 56, 57 -> "Garoa"
+                    61, 63, 65, 66, 67 -> "Chuva"
+                    71, 73, 75, 77 -> "Neve"
+                    80, 81, 82 -> "Pancadas de chuva"
+                    85, 86 -> "Neve"
+                    95, 96, 99 -> "Trovoadas"
+                    else -> "Condição atual"
+                }
+                icon = when {
+                    code >= 95 -> "⛈"
+                    code in 51..67 || code in 80..82 -> "🌧"
+                    code in 45..48 -> "🌫"
+                    code in 2..3 -> "☁"
+                    code == 0 && day -> "☀"
+                    code == 0 -> "☾"
+                    else -> "🌤"
+                }
+                result = "$temp°C  •  $description"
+            } catch (_: Exception) { }
+            val finalResult = result
+            val finalIcon = icon
+            runOnUiThread {
+                weatherInfo.text = finalResult
+                weatherIcon.text = finalIcon
+            }
+        }.start()
     }
 
     private fun headerAction(symbol: String, description: String, action: () -> Unit): View {
@@ -127,24 +202,16 @@ class MainActivity : Activity() {
     private fun separator() = View(this).apply { setBackgroundColor(Color.rgb(100,100,100)) }
 
     private fun buildFooter(): View {
-        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        val label = TextView(this).apply {
-            text = android.text.SpannableString("Tema A – Equilibrado").also {
-                it.setSpan(android.text.style.ForegroundColorSpan(Color.rgb(0,145,235)), 0, 7, 0)
-                it.setSpan(android.text.style.StyleSpan(Typeface.BOLD), 0, it.length, 0)
-            }
-            textSize = 26f; setTextColor(Color.WHITE)
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.END or Gravity.CENTER_VERTICAL
+            addView(TextView(this@MainActivity).apply {
+                text = "●"; textSize = 14f; setTextColor(Color.WHITE); setPadding(dp(8),0,dp(8),0)
+            })
+            addView(TextView(this@MainActivity).apply {
+                text = "●"; textSize = 14f; setTextColor(Color.DKGRAY); setPadding(dp(8),0,dp(8),0)
+            })
         }
-        val subtitle = TextView(this).apply {
-            text = "Completo e moderno, com clima e cidade."
-            textSize = 16f; setTextColor(Color.WHITE)
-        }
-        val texts = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        texts.addView(label); texts.addView(subtitle)
-        row.addView(texts, LinearLayout.LayoutParams(0, -2, 1f))
-        row.addView(TextView(this).apply { text = "●"; textSize = 18f; setTextColor(Color.WHITE); setPadding(dp(8),0,dp(8),0) })
-        row.addView(TextView(this).apply { text = "●"; textSize = 18f; setTextColor(Color.DKGRAY); setPadding(dp(8),0,dp(8),0) })
-        return row
     }
 
     private fun rebuildGrid(focusIndex: Int = 0) {
@@ -153,20 +220,18 @@ class MainActivity : Activity() {
         val width = ((resources.displayMetrics.widthPixels / resources.displayMetrics.density).toInt() - 96) / 5
         val tileWidth = width - 12
         if (showingAll) {
-            display.forEachIndexed { i, app -> addAppTile(app, i, tileWidth, dp(126), i / 5, i % 5) }
             grid.columnCount = 5
+            display.forEachIndexed { i, app -> addAppTile(app, i, tileWidth, dp(126), i / 5, i % 5) }
         } else {
             grid.columnCount = 5
             display.take(5).forEachIndexed { i, app -> addAppTile(app, i, tileWidth, dp(126), 0, i) }
-            // Four cards on the second row, centered using one empty grid cell.
             val spacerParams = GridLayout.LayoutParams(GridLayout.spec(1), GridLayout.spec(0))
-            spacerParams.width = tileWidth
-            spacerParams.height = dp(140)
+            spacerParams.width = tileWidth; spacerParams.height = dp(140)
             grid.addView(View(this), spacerParams)
             display.drop(5).take(3).forEachIndexed { i, app -> addAppTile(app, i + 5, tileWidth, dp(126), 1, i + 1) }
             addAppsTile(tileWidth, 1, 4)
         }
-        grid.getChildAt(focusIndex.coerceIn(0, (grid.childCount - 1).coerceAtLeast(0)))?.requestFocus()
+        if (grid.childCount > 0) grid.getChildAt(focusIndex.coerceIn(0, grid.childCount - 1))?.requestFocus()
     }
 
     private fun addAppTile(app: android.content.pm.ResolveInfo, index: Int, width: Int, height: Int, row: Int, col: Int) {
@@ -181,11 +246,25 @@ class MainActivity : Activity() {
             setTextColor(Color.WHITE); textSize = 15f; gravity = Gravity.CENTER
             maxLines = 2; setPadding(0, dp(5), 0, 0)
         }, LinearLayout.LayoutParams(-1, -2))
+        tile.contentDescription = app.loadLabel(packageManager).toString()
+        tile.setOnClickListener { launchApp(app) }
+        tile.setOnLongClickListener { if (!showingAll) { beginReorder(index); true } else false }
         val lp = GridLayout.LayoutParams(GridLayout.spec(row), GridLayout.spec(col))
-        lp.width = width
-        lp.height = height
+        lp.width = width; lp.height = height
         lp.setMargins(dp(7), dp(7), dp(7), dp(7))
         grid.addView(tile, lp)
+    }
+
+    private fun launchApp(app: android.content.pm.ResolveInfo) {
+        try {
+            val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+            intent.setClassName(app.activityInfo.packageName, app.activityInfo.name)
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(intent)
+        } catch (_: Exception) {
+            try { startActivity(packageManager.getLaunchIntentForPackage(app.activityInfo.packageName)) }
+            catch (_: Exception) { Toast.makeText(this, "Não foi possível abrir este aplicativo", Toast.LENGTH_SHORT).show() }
+        }
     }
 
     private fun addAppsTile(width: Int, row: Int, col: Int) {
@@ -194,12 +273,12 @@ class MainActivity : Activity() {
             text = "▦"; textSize = 58f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
         }, LinearLayout.LayoutParams(dp(68), dp(68)))
         tile.addView(TextView(this).apply {
-            text = "Apps"; textSize = 16f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
+            text = "Todos os apps"; textSize = 15f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
         })
+        tile.contentDescription = "Todos os aplicativos"
         tile.setOnClickListener { showingAll = true; rebuildGrid() }
         val lp = GridLayout.LayoutParams(GridLayout.spec(row), GridLayout.spec(col))
-        lp.width = width
-        lp.height = dp(126)
+        lp.width = width; lp.height = dp(126)
         lp.setMargins(dp(7), dp(7), dp(7), dp(7))
         grid.addView(tile, lp)
     }
@@ -215,7 +294,6 @@ class MainActivity : Activity() {
                     if (focused) blue else Color.rgb(43,43,45))
                 v.elevation = if (focused) dp(8).toFloat() else 0f
             }
-            setOnLongClickListener { if (!showingAll) { beginReorder(index); true } else false }
             setOnKeyListener { _, key, event ->
                 if (reorderMode && event.action == KeyEvent.ACTION_DOWN) {
                     when (key) {
