@@ -25,9 +25,9 @@ import java.util.Date
 import java.util.Locale
 
 class MainActivity : Activity() {
-    private val bg = Color.rgb(10, 13, 19)
-    private val panel = Color.rgb(23, 29, 39)
-    private val blue = Color.rgb(91, 170, 255)
+    private val bg = Color.rgb(7, 10, 16)
+    private val panel = Color.rgb(25, 33, 46)
+    private val blue = Color.rgb(105, 183, 255)
     private lateinit var clock: TextView
     private lateinit var date: TextView
     private lateinit var grid: GridLayout
@@ -54,10 +54,10 @@ class MainActivity : Activity() {
     private fun buildScreen() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(54), dp(34), dp(54), dp(28))
+            setPadding(dp(64), dp(38), dp(64), dp(32))
             background = GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
-                intArrayOf(Color.rgb(15, 22, 34), bg, Color.rgb(8, 11, 16))
+                intArrayOf(Color.rgb(18, 29, 46), Color.rgb(9, 14, 23), bg)
             )
             layoutParams = ViewGroup.LayoutParams(-1, -1)
         }
@@ -68,42 +68,28 @@ class MainActivity : Activity() {
         }
         val left = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         clock = TextView(this).apply {
-            textSize = 42f
-            setTextColor(Color.WHITE)
-            letterSpacing = 0.015f
-            typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
+            textSize = 48f
+            setTextColor(Color.rgb(248, 250, 255))
+            letterSpacing = 0.025f
+            typeface = Typeface.create("sans-serif-thin", Typeface.NORMAL)
         }
         date = TextView(this).apply {
             textSize = 15f
-            setTextColor(Color.rgb(166, 178, 196))
+            setTextColor(Color.rgb(157, 174, 196))
             setPadding(0, dp(2), 0, 0)
         }
         left.addView(clock)
         left.addView(date)
         top.addView(left, LinearLayout.LayoutParams(0, -2, 1f))
 
-        val defaultButton = TextView(this).apply {
-            text = "Tela inicial  ⚙"
-            textSize = 14f
-            setTextColor(Color.rgb(205, 216, 232))
-            setPadding(dp(16), dp(10), dp(16), dp(10))
-            background = rounded(Color.rgb(28, 38, 52), 22)
-            isFocusable = true
-            setOnFocusChangeListener { v, focused ->
-                v.background = rounded(if (focused) Color.rgb(40, 65, 94) else Color.rgb(28, 38, 52), 22,
-                    if (focused) blue else Color.TRANSPARENT)
-            }
-            setOnClickListener { requestDefaultLauncher() }
-        }
-        top.addView(defaultButton)
         root.addView(top)
 
         root.addView(TextView(this).apply {
             text = "Aplicativos"
-            textSize = 21f
+            textSize = 22f
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-            setTextColor(Color.WHITE)
-            setPadding(0, dp(42), 0, dp(18))
+            setTextColor(Color.rgb(240, 245, 253))
+            setPadding(0, dp(46), 0, dp(24))
         })
 
         grid = GridLayout(this).apply {
@@ -145,18 +131,18 @@ class MainActivity : Activity() {
             val tile = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
-                setPadding(dp(8), dp(15), dp(8), dp(13))
-                background = rounded(panel, 16)
+                setPadding(dp(8), dp(16), dp(8), dp(14))
+                background = rounded(panel, 20)
                 isFocusable = true
                 isFocusableInTouchMode = true
                 setOnFocusChangeListener { view, focused ->
                     view.background = rounded(
-                        if (focused) Color.rgb(31, 48, 68) else panel,
-                        16, if (focused) blue else Color.TRANSPARENT
+                        if (focused) Color.rgb(34, 58, 83) else panel,
+                        20, if (focused) blue else Color.TRANSPARENT
                     )
-                    view.scaleX = if (focused) 1.035f else 1f
-                    view.scaleY = if (focused) 1.035f else 1f
-                    view.elevation = if (focused) dp(5).toFloat() else 0f
+                    view.scaleX = if (focused) 1.045f else 1f
+                    view.scaleY = if (focused) 1.045f else 1f
+                    view.elevation = if (focused) dp(9).toFloat() else dp(1).toFloat()
                 }
                 setOnLongClickListener {
                     beginReorder(index)
@@ -188,19 +174,19 @@ class MainActivity : Activity() {
                 setImageDrawable(app.loadIcon(packageManager))
                 scaleType = ImageView.ScaleType.FIT_CENTER
             }
-            tile.addView(icon, LinearLayout.LayoutParams(dp(54), dp(54)))
+            tile.addView(icon, LinearLayout.LayoutParams(dp(60), dp(60)))
             tile.addView(TextView(this).apply {
                 text = app.loadLabel(packageManager).toString()
-                setTextColor(Color.rgb(230, 235, 243))
-                textSize = 13f
+                setTextColor(Color.rgb(235, 240, 248))
+                textSize = 13.5f
                 gravity = Gravity.CENTER
                 maxLines = 2
                 setPadding(0, dp(10), 0, 0)
             }, LinearLayout.LayoutParams(dp(124), -2))
             val params = GridLayout.LayoutParams().apply {
-                width = dp(142)
-                height = dp(132)
-                setMargins(dp(5), dp(5), dp(10), dp(10))
+                width = dp(148)
+                height = dp(142)
+                setMargins(dp(7), dp(7), dp(9), dp(9))
             }
             grid.addView(tile, params)
         }
