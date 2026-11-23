@@ -159,9 +159,10 @@ class MainActivity : Activity() {
             grid.columnCount = 5
             display.take(5).forEachIndexed { i, app -> addAppTile(app, i, tileWidth, dp(126), 0, i) }
             // Four cards on the second row, centered using one empty grid cell.
-            grid.addView(View(this), GridLayout.LayoutParams().apply {
-                width = tileWidth; height = dp(140); rowSpec = GridLayout.spec(1); columnSpec = GridLayout.spec(0)
-            })
+            val spacerParams = GridLayout.LayoutParams(GridLayout.spec(1), GridLayout.spec(0))
+            spacerParams.width = tileWidth
+            spacerParams.height = dp(140)
+            grid.addView(View(this), spacerParams)
             display.drop(5).take(3).forEachIndexed { i, app -> addAppTile(app, i + 5, tileWidth, dp(126), 1, i + 1) }
             addAppsTile(tileWidth, 1, 4)
         }
