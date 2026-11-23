@@ -180,9 +180,10 @@ class MainActivity : Activity() {
             setTextColor(Color.WHITE); textSize = 15f; gravity = Gravity.CENTER
             maxLines = 2; setPadding(0, dp(5), 0, 0)
         }, LinearLayout.LayoutParams(-1, -2))
-        val lp = GridLayout.LayoutParams(GridLayout.spec(row), GridLayout.spec(col)).apply {
-            this.width = width; this.height = height; setMargins(dp(7), dp(7), dp(7), dp(7))
-        }
+        val lp = GridLayout.LayoutParams(GridLayout.spec(row), GridLayout.spec(col))
+        lp.width = width
+        lp.height = height
+        lp.setMargins(dp(7), dp(7), dp(7), dp(7))
         grid.addView(tile, lp)
     }
 
@@ -195,9 +196,10 @@ class MainActivity : Activity() {
             text = "Apps"; textSize = 16f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
         })
         tile.setOnClickListener { showingAll = true; rebuildGrid() }
-        val lp = GridLayout.LayoutParams(GridLayout.spec(row), GridLayout.spec(col)).apply {
-            this.width = width; this.height = dp(126); setMargins(dp(7), dp(7), dp(7), dp(7))
-        }
+        val lp = GridLayout.LayoutParams(GridLayout.spec(row), GridLayout.spec(col))
+        lp.width = width
+        lp.height = dp(126)
+        lp.setMargins(dp(7), dp(7), dp(7), dp(7))
         grid.addView(tile, lp)
     }
 
