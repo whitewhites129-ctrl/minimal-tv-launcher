@@ -539,7 +539,7 @@ class MainActivity : Activity() {
         val dl = android.widget.GridLayout(this).apply { columnCount = 4; useDefaultMargins = false }
         ds.addView(dl)
         page.addView(ds, LinearLayout.LayoutParams(-1, 0, 1f))
-        screenRoot.addView(page, FrameLayout.LayoutParams(-1, -1)); close.requestFocus()
+        screenRoot.addView(page, FrameLayout.LayoutParams(-1, -1)); page.isFocusableInTouchMode = true; page.requestFocus()
         Thread {
             try {
                 val url = URL("https://api.open-meteo.com/v1/forecast?latitude=-23.7717&longitude=-46.59097&hourly=temperature_2m,precipitation_probability,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&forecast_days=7&timezone=America%2FSao_Paulo")
@@ -602,7 +602,6 @@ class MainActivity : Activity() {
                     renderHoursForDate(todayKey)
                     dl.removeAllViews(); val dates = d.getJSONArray("time"); val mx = d.getJSONArray("temperature_2m_max"); val mn = d.getJSONArray("temperature_2m_min"); val ch = d.getJSONArray("precipitation_probability_max"); val codes = d.getJSONArray("weather_code")
                     val df = java.text.SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-                    val todayKey = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
                     val out = java.text.SimpleDateFormat("EEE, dd/MM", Locale("pt", "BR"))
                     for (i in 0 until dates.length()) {
                         val dateKey = dates.getString(i)
