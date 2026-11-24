@@ -13,7 +13,7 @@
         </intent>
     </queries>
     <application
-        android:label="Minimal TV Launcher"
+        android:label="Launcher Lite"
         android:theme="@style/AppTheme">
         <service
             android:name=".LauncherNotificationListener"
