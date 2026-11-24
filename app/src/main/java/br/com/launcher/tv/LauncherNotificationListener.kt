@@ -61,8 +61,17 @@ class LauncherNotificationListener : NotificationListenerService() {
         replace(active)
     }
 
+    fun openNotification(key: String) {
+        val item = try { activeNotifications?.firstOrNull { it.key == key } } catch (_: Exception) { null }
+        try { item?.notification?.contentIntent?.send() } catch (_: Exception) { }
+    }
+
     fun dismiss(key: String) {
         try { cancelNotification(key) } catch (_: Exception) { }
+    }
+
+    fun clearAll() {
+        try { cancelAllNotifications() } catch (_: Exception) { }
     }
 
     private fun toItem(sbn: StatusBarNotification): LauncherNotification? {
