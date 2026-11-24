@@ -56,7 +56,6 @@ class MainActivity : Activity() {
         restoreOrder()
         createHome()
         refreshClock()
-        refreshWeather()
         resetIdleTimer()
         clock.postDelayed(object : Runnable {
             override fun run() { refreshClock(); clock.postDelayed(this, 30000) }
@@ -76,12 +75,24 @@ class MainActivity : Activity() {
     private fun createHome() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(52), dp(28), dp(52), dp(28))
+            setPadding(dp(58), dp(34), dp(58), dp(28))
             setBackgroundColor(Color.BLACK)
             layoutParams = ViewGroup.LayoutParams(-1, -1)
         }
-        root.addView(createHeader(), LinearLayout.LayoutParams(-1, dp(108)))
+        root.addView(createHeader(), LinearLayout.LayoutParams(-1, dp(104)))
 
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        val heading = TextView(this).apply {
+            text = "Seus apps"
+            textSize = 25f
+            setTextColor(Color.WHITE)
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            setPadding(dp(2), 0, 0, dp(14))
+        }
+        content.addView(heading)
         val center = FrameLayout(this)
         appGrid = GridLayout(this).apply {
             columnCount = 5
@@ -89,8 +100,9 @@ class MainActivity : Activity() {
             alignmentMode = GridLayout.ALIGN_BOUNDS
         }
         center.addView(appGrid, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
-        root.addView(center, LinearLayout.LayoutParams(-1, 0, 1f))
-        root.addView(createBottomNav(), LinearLayout.LayoutParams(-1, dp(54)))
+        content.addView(center, LinearLayout.LayoutParams(-1, -2))
+        root.addView(content, LinearLayout.LayoutParams(-1, 0, 1f))
+
         screenRoot = FrameLayout(this)
         screenRoot.addView(root, FrameLayout.LayoutParams(-1, -1))
         setContentView(screenRoot)
@@ -99,63 +111,20 @@ class MainActivity : Activity() {
 
     private fun createHeader(): View {
         val header = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_VERTICAL or Gravity.START
         }
-        val time = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         clock = TextView(this).apply {
-            textSize = 46f
+            textSize = 43f
             setTextColor(Color.WHITE)
             typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
         }
         date = TextView(this).apply {
             textSize = 15f
-            setTextColor(Color.rgb(215, 228, 245))
+            setTextColor(Color.rgb(185, 195, 210))
         }
-        time.addView(clock); time.addView(date)
-        header.addView(time)
-        header.addView(View(this).apply { setBackgroundColor(Color.argb(130,255,255,255)) },
-            LinearLayout.LayoutParams(dp(1), dp(66)).apply { setMargins(dp(24), 0, dp(24), 0) })
-
-        val weatherBlock = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
-        weatherIcon = TextView(this).apply {
-            text = "☁"
-            textSize = 42f
-            setTextColor(Color.WHITE)
-        }
-        val weatherLabels = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(14), 0, 0, 0)
-        }
-        weatherLabels.addView(TextView(this).apply {
-            text = "São Bernardo do Campo"
-            textSize = 19f
-            setTextColor(Color.WHITE)
-            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-        })
-        weatherText = TextView(this).apply {
-            text = "Carregando previsão…"
-            textSize = 14f
-            setTextColor(Color.rgb(220, 233, 250))
-        }
-        weatherLabels.addView(weatherText)
-        weatherBlock.addView(weatherIcon)
-        weatherBlock.addView(weatherLabels)
-        weatherBlock.isFocusable = true
-        weatherBlock.setOnClickListener { refreshWeather() }
-        header.addView(weatherBlock, LinearLayout.LayoutParams(0, -2, 1f))
-
-        header.addView(actionButton(android.R.drawable.ic_menu_search, "Pesquisar") { openVoice() })
-        header.addView(actionButton(android.R.drawable.ic_btn_speak_now, "Pesquisa por voz") { openVoice() })
-        header.addView(actionButton(android.R.drawable.ic_menu_preferences, "Wi-Fi") {
-            openIntent(Intent(Settings.ACTION_WIFI_SETTINGS))
-        })
-        header.addView(actionButton(android.R.drawable.ic_menu_manage, "Configurações") {
-            openIntent(Intent(Settings.ACTION_SETTINGS))
-        })
+        header.addView(clock)
+        header.addView(date)
         return header
     }
 
@@ -296,7 +265,7 @@ class MainActivity : Activity() {
             scaleType = ImageView.ScaleType.FIT_CENTER
         }
         card.addView(icon, LinearLayout.LayoutParams(dp(66), dp(66)))
-        card.background = appCardBackground(app.activityInfo.packageName)
+        card.background = appCardBackground(app.loadIcon(packageManager))
         card.setPadding(dp(8), dp(8), dp(8), dp(8))
         card.contentDescription = app.loadLabel(packageManager).toString()
         card.setOnClickListener { launch(app) }
@@ -342,22 +311,40 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun appCardBackground(packageName: String): GradientDrawable {
-        val colors = when {
-            packageName.contains("cinegato", true) -> intArrayOf(Color.rgb(83, 24, 130), Color.rgb(35, 13, 62))
-            packageName.contains("camera", true) -> intArrayOf(Color.rgb(0, 177, 194), Color.rgb(0, 82, 111))
-            packageName.contains("fx", true) -> intArrayOf(Color.rgb(20, 79, 145), Color.rgb(5, 25, 58))
-            packageName.contains("speed", true) -> intArrayOf(Color.rgb(244, 244, 244), Color.rgb(183, 207, 220))
-            packageName.contains("play", true) -> intArrayOf(Color.rgb(0, 116, 170), Color.rgb(31, 45, 102))
-            packageName.contains("saimo", true) -> intArrayOf(Color.rgb(205, 222, 240), Color.rgb(86, 137, 188))
-            packageName.contains("send", true) -> intArrayOf(Color.rgb(0, 177, 220), Color.rgb(0, 70, 155))
-            packageName.contains("smart", true) -> intArrayOf(Color.rgb(198, 20, 48), Color.rgb(75, 5, 20))
-            packageName.contains("unitv", true) -> intArrayOf(Color.rgb(245, 202, 186), Color.rgb(179, 65, 110))
-            else -> intArrayOf(Color.rgb(15, 68, 130), Color.rgb(5, 18, 44))
+    private fun appCardBackground(drawable: android.graphics.drawable.Drawable): GradientDrawable {
+        val bitmap = android.graphics.Bitmap.createBitmap(48, 48, android.graphics.Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(bitmap)
+        drawable.setBounds(0, 0, 48, 48)
+        drawable.draw(canvas)
+        var red = 0L
+        var green = 0L
+        var blue = 0L
+        var count = 0
+        for (y in 0 until 48 step 2) {
+            for (x in 0 until 48 step 2) {
+                val pixel = bitmap.getPixel(x, y)
+                if (Color.alpha(pixel) < 100) continue
+                val hsv = FloatArray(3)
+                Color.colorToHSV(pixel, hsv)
+                if (hsv[1] > 0.32f && hsv[2] > 0.28f) {
+                    red += Color.red(pixel); green += Color.green(pixel); blue += Color.blue(pixel)
+                    count++
+                }
+            }
         }
-        return GradientDrawable(GradientDrawable.Orientation.TL_BR, colors).apply {
-            cornerRadius = dp(22).toFloat()
-            setStroke(dp(1), Color.argb(90, 255, 255, 255))
+        bitmap.recycle()
+        val base = if (count > 0) Color.rgb((red / count).toInt(), (green / count).toInt(), (blue / count).toInt())
+            else Color.rgb(64, 91, 170)
+        val hsv = FloatArray(3)
+        Color.colorToHSV(base, hsv)
+        hsv[1] = (hsv[1] * 0.82f).coerceIn(0.35f, 0.88f)
+        hsv[2] = (hsv[2] * 0.78f).coerceIn(0.30f, 0.72f)
+        val dark = Color.HSVToColor(hsv)
+        hsv[2] = (hsv[2] * 1.28f).coerceAtMost(0.92f)
+        val light = Color.HSVToColor(hsv)
+        return GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(light, dark)).apply {
+            cornerRadius = dp(17).toFloat()
+            setStroke(dp(1), Color.argb(55, 255, 255, 255))
         }
     }
 
