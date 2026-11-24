@@ -137,7 +137,7 @@ class MainActivity : Activity() {
         left.addView(date)
         val actions = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
+            gravity = Gravity.CENTER_VERTICAL or Gravity.RIGHT
         }
         val weatherPill = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -146,7 +146,7 @@ class MainActivity : Activity() {
             background = rounded(Color.rgb(18, 24, 38), 18, Color.rgb(42, 55, 75))
             isFocusable = true
             isClickable = true
-            setOnClickListener { refreshWeather() }
+            setOnClickListener { openWeatherScreen() }
             setOnFocusChangeListener { v, focused ->
                 v.background = rounded(if (focused) Color.rgb(18, 67, 105) else Color.rgb(18, 24, 38),
                     18, if (focused) accent else Color.rgb(42, 55, 75))
@@ -166,14 +166,14 @@ class MainActivity : Activity() {
         }
         weatherPill.addView(weatherIcon)
         weatherPill.addView(weatherText)
-        actions.addView(weatherPill)
         actions.addView(headerAction(R.drawable.ic_notifications_modern, "Notificações") { openNotificationsPanel() })
         actions.addView(headerAction(R.drawable.ic_settings_modern, "Configurações") { openIntent(Intent(Settings.ACTION_SETTINGS)) })
         actions.addView(headerAction(R.drawable.ic_mic_modern, "Pesquisa por voz") { openVoice() })
-        header.orientation = LinearLayout.HORIZONTAL
-        header.gravity = Gravity.CENTER_VERTICAL
-        header.addView(left, LinearLayout.LayoutParams(0, -1, 1f))
-        header.addView(actions, LinearLayout.LayoutParams(-2, -1))
+        val centeredHeader = FrameLayout(this)
+        centeredHeader.addView(left, FrameLayout.LayoutParams(dp(230), -1, Gravity.LEFT or Gravity.CENTER_VERTICAL))
+        centeredHeader.addView(weatherPill, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
+        centeredHeader.addView(actions, FrameLayout.LayoutParams(-2, -1, Gravity.RIGHT or Gravity.CENTER_VERTICAL))
+        header.addView(centeredHeader, LinearLayout.LayoutParams(-1, -1))
         refreshWeather()
         return header
     }
@@ -222,7 +222,7 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.TOP
             setPadding(dp(24), dp(25), dp(24), dp(22))
-            background = rounded(Color.rgb(24, 33, 54), 26, Color.rgb(72, 104, 154))
+            background = rounded(Color.BLACK, 0, Color.TRANSPARENT)
             isFocusable = true
             isClickable = true
             setOnClickListener { }
@@ -328,7 +328,7 @@ class MainActivity : Activity() {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding(dp(13), dp(12), dp(10), dp(12))
-                background = rounded(Color.rgb(42, 57, 86), 17, Color.rgb(63, 82, 119))
+                background = rounded(Color.rgb(18, 18, 18), 17, Color.rgb(55, 55, 55))
                 isFocusable = true
                 isClickable = true
                 setOnClickListener {
@@ -336,8 +336,8 @@ class MainActivity : Activity() {
                     closeNotificationsPanel()
                 }
                 setOnFocusChangeListener { v, focused ->
-                    v.background = rounded(if (focused) Color.rgb(35, 88, 137) else Color.rgb(42, 57, 86),
-                        17, if (focused) accent else Color.rgb(63, 82, 119))
+                    v.background = rounded(if (focused) Color.rgb(25, 65, 95) else Color.rgb(18, 18, 18),
+                        17, if (focused) accent else Color.rgb(55, 55, 55))
                 }
             }
             val icon = ImageView(this).apply {
@@ -478,22 +478,98 @@ class MainActivity : Activity() {
     }
 
     private fun openVoice() {
-        val intents = listOf(
-            Intent(Intent.ACTION_ASSIST),
-            Intent("android.intent.action.VOICE_ASSIST"),
-            Intent("android.intent.action.VOICE_COMMAND"),
-            Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
-        )
-        for (intent in intents) {
-            try {
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                if (intent.resolveActivity(packageManager) != null) {
-                    startActivity(intent)
-                    return
-                }
-            } catch (_: Exception) { }
+        try {
+            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, "pt-BR")
+                putExtra(RecognizerIntent.EXTRA_PROMPT, "Diga: tempo")
+            }
+            startActivityForResult(intent, 701)
+        } catch (_: Exception) {
+            try { startActivity(Intent(Intent.ACTION_ASSIST)) }
+            catch (_: Exception) { Toast.makeText(this, "O serviço de voz não está disponível", Toast.LENGTH_LONG).show() }
         }
-        Toast.makeText(this, "O serviço de voz do Google não está disponível", Toast.LENGTH_LONG).show()
+    }
+
+    @Deprecated("Deprecated by Android, retained for TV speech recognizer compatibility")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != 701 || resultCode != RESULT_OK) return
+        val spoken = data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull().orEmpty()
+        val normalized = spoken.lowercase(Locale("pt", "BR"))
+        if (listOf("tempo", "clima", "previsão", "previsao", "temperatura").any { normalized.contains(it) }) {
+            openWeatherScreen()
+        } else if (spoken.isNotBlank()) {
+            try { startActivity(Intent(Intent.ACTION_WEB_SEARCH).putExtra("query", spoken)) }
+            catch (_: Exception) { Toast.makeText(this, "Não entendi o comando: $spoken", Toast.LENGTH_SHORT).show() }
+        }
+    }
+
+    private fun openWeatherScreen() {
+        if (screenRoot.findViewWithTag<View>("weather_screen") != null) return
+        val page = LinearLayout(this).apply {
+            tag = "weather_screen"
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(dp(40), dp(30), dp(40), dp(30))
+            setBackgroundColor(Color.BLACK)
+            isFocusable = true
+        }
+        page.addView(TextView(this).apply {
+            text = "CLIMA AGORA"
+            textSize = 18f
+            letterSpacing = 0.16f
+            setTextColor(Color.rgb(165, 185, 210))
+            gravity = Gravity.CENTER
+        })
+        page.addView(TextView(this).apply {
+            text = weatherIcon.text
+            textSize = 76f
+            gravity = Gravity.CENTER
+            setTextColor(Color.WHITE)
+            setPadding(0, dp(12), 0, dp(8))
+        })
+        page.addView(TextView(this).apply {
+            text = weatherText.text
+            textSize = 27f
+            gravity = Gravity.CENTER
+            setTextColor(Color.WHITE)
+            maxLines = 2
+        })
+        page.addView(TextView(this).apply {
+            text = "São Bernardo do Campo • SP"
+            textSize = 16f
+            gravity = Gravity.CENTER
+            setTextColor(Color.LTGRAY)
+            setPadding(0, dp(12), 0, dp(26))
+        })
+        val buttons = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
+        val refresh = TextView(this).apply {
+            text = "Atualizar"
+            textSize = 16f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            setPadding(dp(24), dp(14), dp(24), dp(14))
+            isFocusable = true
+            isClickable = true
+            background = rounded(Color.rgb(25, 25, 25), 14, Color.rgb(75, 75, 75))
+            setOnClickListener { refreshWeather() }
+        }
+        val close = TextView(this).apply {
+            text = "Voltar"
+            textSize = 16f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            setPadding(dp(24), dp(14), dp(24), dp(14))
+            isFocusable = true
+            isClickable = true
+            background = rounded(Color.rgb(25, 25, 25), 14, Color.rgb(75, 75, 75))
+            setOnClickListener { screenRoot.removeView(page) }
+        }
+        buttons.addView(refresh); buttons.addView(close, LinearLayout.LayoutParams(-2, -2).apply { leftMargin = dp(14) })
+        page.addView(buttons)
+        screenRoot.addView(page, FrameLayout.LayoutParams(-1, -1))
+        refresh.requestFocus()
     }
 
     private fun openIntent(intent: Intent) {
