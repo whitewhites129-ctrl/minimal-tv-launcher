@@ -41,6 +41,7 @@ class MainActivity : Activity() {
     private lateinit var screenRoot: FrameLayout
     private var notificationPanel: LinearLayout? = null
     private var notificationCount: TextView? = null
+    private var weatherPage: View? = null
     private val idleHandler = Handler(Looper.getMainLooper())
     private var saverView: View? = null
     private var saverClock: TextView? = null
@@ -138,6 +139,8 @@ class MainActivity : Activity() {
         val actions = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL or Gravity.RIGHT
+            clipChildren = false
+            clipToPadding = false
         }
         val weatherPill = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -169,7 +172,7 @@ class MainActivity : Activity() {
         actions.addView(headerAction(R.drawable.ic_notifications_modern, "Notificações") { openNotificationsPanel() })
         actions.addView(headerAction(R.drawable.ic_settings_modern, "Configurações") { openIntent(Intent(Settings.ACTION_SETTINGS)) })
         actions.addView(headerAction(R.drawable.ic_mic_modern, "Pesquisa por voz") { openVoice() })
-        val centeredHeader = FrameLayout(this)
+        val centeredHeader = FrameLayout(this).apply { clipChildren = false; clipToPadding = false }
         centeredHeader.addView(left, FrameLayout.LayoutParams(dp(230), -1, Gravity.LEFT or Gravity.CENTER_VERTICAL))
         centeredHeader.addView(weatherPill, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
         centeredHeader.addView(actions, FrameLayout.LayoutParams(-2, -1, Gravity.RIGHT or Gravity.CENTER_VERTICAL))
@@ -188,7 +191,7 @@ class MainActivity : Activity() {
             isClickable = true
             setPadding(dp(12), dp(12), dp(12), dp(12))
             background = rounded(Color.TRANSPARENT, 16, Color.TRANSPARENT)
-            layoutParams = LinearLayout.LayoutParams(dp(62), dp(68))
+            layoutParams = LinearLayout.LayoutParams(dp(58), dp(58))
             clipToOutline = false
             setOnClickListener { action() }
             setOnFocusChangeListener { v, focused ->
@@ -741,10 +744,10 @@ class MainActivity : Activity() {
         card.contentDescription = app.loadLabel(packageManager).toString()
         card.setOnClickListener { launch(app) }
         card.setOnLongClickListener {
-            if (!showingAll) {
+            if (!organizing) {
                 organizing = true
                 moving = index
-                Toast.makeText(this, "Use as setas para mover e OK para salvar", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "Organizar: use as setas para mover; OK salva; VOLTAR cancela", Toast.LENGTH_LONG).show()
                 true
             } else false
         }
@@ -1001,10 +1004,13 @@ class MainActivity : Activity() {
 
     override fun onBackPressed() {
         if (saverView != null) { dismissScreenSaver(); return }
-        if (showingAll) {
-            showingAll = false
-            renderApps()
-        } else super.onBackPressed()
+        if (screenRoot.findViewWithTag<View>("notification_panel_root") != null) { closeNotificationsPanel(); return }
+        val quick = screenRoot.findViewWithTag<View>("quick_panel")
+        if (quick != null) { screenRoot.removeView(quick); return }
+        if (weatherPage != null) { screenRoot.removeView(weatherPage); weatherPage = null; return }
+        if (organizing) { organizing = false; restoreOrder(); renderApps(); return }
+        if (showingAll) { showingAll = false; renderApps(); return }
+        super.onBackPressed()
     }
 
     private fun rounded(color: Int, radius: Int, stroke: Int) = GradientDrawable().apply {
