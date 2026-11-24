@@ -8,6 +8,8 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.speech.RecognizerIntent
 import android.view.Gravity
@@ -36,6 +38,12 @@ class MainActivity : Activity() {
     private lateinit var weatherIcon: TextView
     private lateinit var weatherText: TextView
     private lateinit var appGrid: GridLayout
+    private lateinit var screenRoot: FrameLayout
+    private val idleHandler = Handler(Looper.getMainLooper())
+    private var saverView: View? = null
+    private var saverClock: TextView? = null
+    private var saverDate: TextView? = null
+    private val idleTask = Runnable { showScreenSaver() }
     private var showingAll = false
     private var organizing = false
     private var moving = -1
@@ -49,6 +57,7 @@ class MainActivity : Activity() {
         createHome()
         refreshClock()
         refreshWeather()
+        resetIdleTimer()
         clock.postDelayed(object : Runnable {
             override fun run() { refreshClock(); clock.postDelayed(this, 30000) }
         }, 30000)
@@ -84,7 +93,10 @@ class MainActivity : Activity() {
         }
         center.addView(appGrid, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
         root.addView(center, LinearLayout.LayoutParams(-1, 0, 1f))
-        setContentView(root)
+        root.addView(createBottomNav(), LinearLayout.LayoutParams(-1, dp(62)))
+        screenRoot = FrameLayout(this)
+        screenRoot.addView(root, FrameLayout.LayoutParams(-1, -1))
+        setContentView(screenRoot)
         renderApps()
     }
 
@@ -139,12 +151,13 @@ class MainActivity : Activity() {
         weatherBlock.setOnClickListener { refreshWeather() }
         header.addView(weatherBlock, LinearLayout.LayoutParams(0, -2, 1f))
 
+        header.addView(actionButton(android.R.drawable.ic_menu_search, "Pesquisar") { openVoice() })
         header.addView(actionButton(android.R.drawable.ic_btn_speak_now, "Pesquisa por voz") { openVoice() })
-        header.addView(actionButton(android.R.drawable.ic_menu_manage, "Configurações") {
-            openIntent(Intent(Settings.ACTION_SETTINGS))
-        })
         header.addView(actionButton(android.R.drawable.ic_menu_preferences, "Wi-Fi") {
             openIntent(Intent(Settings.ACTION_WIFI_SETTINGS))
+        })
+        header.addView(actionButton(android.R.drawable.ic_menu_manage, "Configurações") {
+            openIntent(Intent(Settings.ACTION_SETTINGS))
         })
         return header
     }
@@ -258,7 +271,7 @@ class MainActivity : Activity() {
         val available = screenWidth - 104
         val tileWidth = (available / 5).coerceIn(dp(142), dp(220))
         val tileHeight = dp(158)
-        val visible = if (showingAll) apps.toList() else apps.take(8)
+        val visible = if (showingAll) apps.toList() else apps.take(10)
         if (showingAll) {
             visible.forEachIndexed { index, app ->
                 addAppCard(app, index, tileWidth, tileHeight, index / 5, index % 5)
@@ -267,10 +280,10 @@ class MainActivity : Activity() {
             visible.take(5).forEachIndexed { index, app ->
                 addAppCard(app, index, tileWidth, tileHeight, 0, index)
             }
-            visible.drop(5).take(3).forEachIndexed { index, app ->
-                addAppCard(app, index + 5, tileWidth, tileHeight, 1, index + 1)
+            visible.drop(5).take(5).forEachIndexed { index, app ->
+                addAppCard(app, index + 5, tileWidth, tileHeight, 1, index)
             }
-            addAllAppsCard(tileWidth, tileHeight, 1, 4)
+            if (apps.size > 10) addAllAppsCard(tileWidth, tileHeight, 2, 0)
         }
         if (appGrid.childCount > 0) {
             val actual = focus.coerceIn(0, appGrid.childCount - 1)
@@ -324,15 +337,15 @@ class MainActivity : Activity() {
         orientation = LinearLayout.VERTICAL
         gravity = Gravity.CENTER
         setPadding(dp(10), dp(12), dp(10), dp(10))
-        background = rounded(Color.rgb(13, 35, 65), 20, Color.rgb(83, 147, 197))
+        background = rounded(Color.rgb(7, 20, 37), 20, Color.rgb(43, 82, 119))
         isFocusable = true
         isFocusableInTouchMode = true
         isClickable = true
         setOnFocusChangeListener { view, focused ->
             view.background = rounded(
-                if (focused) Color.rgb(9, 65, 103) else Color.rgb(13, 35, 65),
+                if (focused) Color.rgb(8, 37, 59) else Color.rgb(7, 20, 37),
                 20,
-                if (focused) accent else Color.rgb(83, 147, 197)
+                if (focused) accent else Color.rgb(43, 82, 119)
             )
             view.elevation = if (focused) dp(9).toFloat() else 0f
         }
@@ -347,13 +360,13 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER
         }, LinearLayout.LayoutParams(dp(76), dp(76)))
         card.addView(TextView(this).apply {
-            text = "Todos os apps"
+            text = "Mais apps"
             textSize = 15f
             setTextColor(Color.WHITE)
             gravity = Gravity.CENTER
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
         })
-        card.contentDescription = "Todos os aplicativos"
+        card.contentDescription = "Mais aplicativos"
         card.setOnClickListener { showingAll = true; renderApps() }
         addGridCard(card, width, height, row, col)
     }
@@ -426,7 +439,90 @@ class MainActivity : Activity() {
         renderApps(target)
     }
 
+    override fun onUserInteraction() {
+        super.onUserInteraction()
+        if (saverView != null) dismissScreenSaver() else resetIdleTimer()
+    }
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (saverView != null && event.action == KeyEvent.ACTION_DOWN) {
+            dismissScreenSaver()
+            return true
+        }
+        return super.dispatchKeyEvent(event)
+    }
+
+    private fun resetIdleTimer() {
+        if (saverView != null) return
+        idleHandler.removeCallbacks(idleTask)
+        val minutes = prefs.getInt("screensaver_minutes", 5).coerceIn(1, 60)
+        idleHandler.postDelayed(idleTask, minutes * 60 * 1000L)
+    }
+
+    private fun showScreenSaver() {
+        if (saverView != null) return
+        val panel = FrameLayout(this).apply { setBackgroundColor(Color.BLACK); isFocusable = true; isFocusableInTouchMode = true }
+        val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER }
+        saverClock = TextView(this).apply {
+            textSize = 76f; setTextColor(Color.WHITE)
+            typeface = Typeface.create("sans-serif-light", Typeface.NORMAL); gravity = Gravity.CENTER
+        }
+        saverDate = TextView(this).apply { textSize = 20f; setTextColor(Color.LTGRAY); gravity = Gravity.CENTER }
+        content.addView(saverClock); content.addView(saverDate)
+        panel.addView(content, FrameLayout.LayoutParams(-1, -1, Gravity.CENTER))
+        panel.setOnClickListener { dismissScreenSaver() }
+        screenRoot.addView(panel, FrameLayout.LayoutParams(-1, -1))
+        saverView = panel
+        updateSaverClock()
+        panel.requestFocus()
+        idleHandler.postDelayed(object : Runnable {
+            override fun run() {
+                if (saverView != null) { updateSaverClock(); idleHandler.postDelayed(this, 30000) }
+            }
+        }, 30000)
+    }
+
+    private fun updateSaverClock() {
+        val now = Date()
+        saverClock?.text = SimpleDateFormat("HH:mm", Locale.getDefault()).format(now)
+        saverDate?.text = SimpleDateFormat("EEEE, d 'de' MMMM", Locale("pt", "BR")).format(now)
+    }
+
+    private fun dismissScreenSaver() {
+        val view = saverView ?: return
+        screenRoot.removeView(view)
+        saverView = null; saverClock = null; saverDate = null
+        resetIdleTimer()
+    }
+
+    private fun createBottomNav(): View {
+        val bar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
+        fun navIcon(icon: Int, label: String, action: () -> Unit): View {
+            return ImageView(this).apply {
+                setImageResource(icon)
+                imageTintList = android.content.res.ColorStateList.valueOf(Color.rgb(205, 218, 232))
+                contentDescription = label
+                setPadding(dp(22), dp(10), dp(22), dp(10))
+                isFocusable = true
+                setOnClickListener { action() }
+                setOnFocusChangeListener { v, focused ->
+                    imageTintList = android.content.res.ColorStateList.valueOf(if (focused) accent else Color.rgb(205, 218, 232))
+                    v.alpha = if (focused) 1f else 0.72f
+                }
+            }
+        }
+        bar.addView(navIcon(android.R.drawable.ic_menu_view, "Início") { showingAll = false; renderApps() })
+        bar.addView(View(this).apply { setBackgroundColor(Color.rgb(55, 75, 98)) }, LinearLayout.LayoutParams(dp(1), dp(30)))
+        bar.addView(navIcon(android.R.drawable.ic_menu_slideshow, "Lançamentos") {
+            Toast.makeText(this, "A área de lançamentos será conectada ao catálogo na próxima etapa", Toast.LENGTH_SHORT).show()
+        })
+        bar.addView(View(this).apply { setBackgroundColor(Color.rgb(55, 75, 98)) }, LinearLayout.LayoutParams(dp(1), dp(30)))
+        bar.addView(navIcon(android.R.drawable.ic_menu_manage, "Configurações") { openIntent(Intent(Settings.ACTION_SETTINGS)) })
+        return bar
+    }
+
     override fun onBackPressed() {
+        if (saverView != null) { dismissScreenSaver(); return }
         if (showingAll) {
             showingAll = false
             renderApps()
