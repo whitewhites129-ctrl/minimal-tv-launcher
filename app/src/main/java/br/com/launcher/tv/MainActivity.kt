@@ -199,7 +199,7 @@ class MainActivity : Activity() {
             setOnClickListener { action() }
             setOnFocusChangeListener { v, focused ->
                 v.background = rounded(if (focused) Color.rgb(7, 20, 33) else Color.TRANSPARENT,
-                    16, if (focused) Color.rgb(24, 142, 184) else Color.TRANSPARENT)
+                    16, if (focused) Color.rgb(16, 94, 126) else Color.TRANSPARENT)
                 v.scaleX = 1f; v.scaleY = 1f
             }
         }
