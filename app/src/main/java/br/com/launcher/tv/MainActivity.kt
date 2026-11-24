@@ -556,20 +556,32 @@ class MainActivity : Activity() {
                         hoursTitle.text = "Previsão por hora — $dayLabel${if (dateLabel.isNotBlank()) ", $dateLabel" else ""}"
                         hr.removeAllViews()
                         val indices = (0 until ts.length()).filter { ts.getString(it).startsWith(dateKey) }
-                        val nowIndex = if (dateKey == today) indices.minByOrNull { i ->
-                            try { kotlin.math.abs(parser.parse(ts.getString(i))!!.time - System.currentTimeMillis()) } catch (_: Exception) { Long.MAX_VALUE }
+                        val nowMillis = System.currentTimeMillis()
+                        val nowIndex = if (dateKey == today) indices.filter { i ->
+                            try { parser.parse(ts.getString(i))!!.time <= nowMillis } catch (_: Exception) { false }
+                        }.maxByOrNull { i ->
+                            try { parser.parse(ts.getString(i))!!.time } catch (_: Exception) { Long.MIN_VALUE }
                         } else null
                         indices.forEach { i ->
                             val currentHour = i == nowIndex
                             val card = LinearLayout(this).apply {
                                 orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
                                 setPadding(dp(9), dp(7), dp(9), dp(7))
-                                background = rounded(if (currentHour) Color.rgb(14, 58, 92) else Color.rgb(17, 23, 34), 14, if (currentHour) accent else Color.rgb(48,60,78))
+                                background = rounded(Color.rgb(17, 23, 34), 14, if (currentHour) accent else Color.rgb(48,60,78))
                                 isFocusable = true; isClickable = true
-                                setOnFocusChangeListener { v, focused -> v.background = rounded(if (focused || currentHour) Color.rgb(14, 58, 92) else Color.rgb(17,23,34), 14, if (focused || currentHour) accent else Color.rgb(48,60,78)) }
+                                setOnFocusChangeListener { v, focused ->
+                                    v.background = rounded(Color.rgb(17,23,34), 14, if (focused || currentHour) accent else Color.rgb(48,60,78))
+                                }
+                            }
+                            val hourRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
+                            if (currentHour) {
+                                hourRow.addView(View(this).apply {
+                                    background = android.graphics.drawable.GradientDrawable().apply { shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(Color.RED) }
+                                }, LinearLayout.LayoutParams(dp(7), dp(7)).apply { rightMargin = dp(5) })
                             }
                             val hour = try { fmt.format(parser.parse(ts.getString(i))!!) } catch (_: Exception) { "--:--" }
-                            card.addView(TextView(this).apply { text = if (currentHour) "$hour • Agora" else hour; textSize = 13f; setTextColor(Color.LTGRAY) })
+                            hourRow.addView(TextView(this).apply { text = hour; textSize = 13f; setTextColor(Color.LTGRAY) })
+                            card.addView(hourRow)
                             card.addView(TextView(this).apply { text = weatherSymbol(wc.getInt(i)); textSize = 24f; setTextColor(Color.WHITE) })
                             card.addView(TextView(this).apply { text = tv.getDouble(i).toInt().toString() + "°"; textSize = 19f; setTextColor(Color.WHITE) })
                             card.addView(TextView(this).apply { text = rp.optInt(i).toString() + "% chuva"; textSize = 11f; setTextColor(Color.rgb(155,195,235)) })
@@ -721,6 +733,21 @@ class MainActivity : Activity() {
         card.clipToOutline = true
         card.setPadding(if (banner != null) 0 else dp(8), if (banner != null) 0 else dp(8),
             if (banner != null) 0 else dp(8), if (banner != null) 0 else dp(8))
+        if (organizing && index == moving) {
+            val arrows = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; setPadding(0, 0, 0, dp(5)) }
+            val left = TextView(this).apply {
+                text = "◀"; textSize = 19f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
+                setPadding(dp(12), dp(3), dp(12), dp(3)); isFocusable = false
+                setOnClickListener { move(-1) }
+            }
+            val right = TextView(this).apply {
+                text = "▶"; textSize = 19f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
+                setPadding(dp(12), dp(3), dp(12), dp(3)); isFocusable = false
+                setOnClickListener { move(1) }
+            }
+            arrows.addView(left); arrows.addView(right)
+            card.addView(arrows, LinearLayout.LayoutParams(-1, dp(28)))
+        }
         card.addView(image, LinearLayout.LayoutParams(
             if (banner != null) -1 else dp(66),
             if (banner != null) -1 else dp(66)
@@ -874,17 +901,6 @@ class MainActivity : Activity() {
             repeatCount = ObjectAnimator.INFINITE
             start()
         }
-        if (sortDoneButton == null) {
-            sortDoneButton = TextView(this).apply {
-                text = "✓  Concluir"; textSize = 13f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
-                setPadding(dp(13), dp(8), dp(13), dp(8))
-                background = rounded(Color.rgb(15, 42, 65), 16, accent)
-                isFocusable = true; isClickable = true
-                setOnClickListener { saveOrder() }
-            }
-        }
-        val done = sortDoneButton!!
-        if (done.parent == null) screenRoot.addView(done, FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.RIGHT).apply { rightMargin = dp(32); bottomMargin = dp(24) })
         Toast.makeText(this, "Segure OK para pegar. Use as setas e toque em Concluir.", Toast.LENGTH_SHORT).show()
     }
 
@@ -892,7 +908,6 @@ class MainActivity : Activity() {
         sortPulse?.cancel()
         sortPulse = null
         if (moving in apps.indices) appGrid.getChildAt(moving)?.alpha = 1f
-        sortDoneButton?.let { if (it.parent != null) screenRoot.removeView(it) }
     }
 
     private fun saveOrder() {
@@ -900,7 +915,6 @@ class MainActivity : Activity() {
         organizing = false
         moving = -1
         prefs.edit().putString("order", apps.joinToString("|") { it.activityInfo.packageName }).apply()
-        Toast.makeText(this, "Ordem salva", Toast.LENGTH_SHORT).show()
         renderApps()
     }
 
