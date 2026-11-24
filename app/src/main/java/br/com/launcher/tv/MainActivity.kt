@@ -565,7 +565,7 @@ class MainActivity : Activity() {
                     }
                     val todayKey = java.text.SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
                     renderHoursForDate(todayKey)
-                    dl.removeAllViews();                    dl.removeAllViews(); val dates = d.getJSONArray("time"); val mx = d.getJSONArray("temperature_2m_max"); val mn = d.getJSONArray("temperature_2m_min"); val ch = d.getJSONArray("precipitation_probability_max"); val codes = d.getJSONArray("weather_code")
+                    dl.removeAllViews(); val dates = d.getJSONArray("time"); val mx = d.getJSONArray("temperature_2m_max"); val mn = d.getJSONArray("temperature_2m_min"); val ch = d.getJSONArray("precipitation_probability_max"); val codes = d.getJSONArray("weather_code")
                     val df = java.text.SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()); val out = java.text.SimpleDateFormat("EEE, dd/MM", Locale("pt", "BR"))
                     for (i in 0 until dates.length()) {
                         val day = try { out.format(df.parse(dates.getString(i))!!) } catch (_: Exception) { dates.getString(i) }
@@ -886,7 +886,7 @@ class MainActivity : Activity() {
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (event.action == KeyEvent.ACTION_DOWN) {
             if (saverView != null) { dismissScreenSaver(); return true }
-            if (!organizing && event.repeatCount > 0 && (event.keyCode == KeyEvent.KEYCODE_DPAD_CENTER || event.keyCode == KeyEvent.KEYCODE_ENTER)) {
+            if (!organizing && (event.keyCode == KeyEvent.KEYCODE_MENU || (event.repeatCount > 0 && (event.keyCode == KeyEvent.KEYCODE_DPAD_CENTER || event.keyCode == KeyEvent.KEYCODE_ENTER)))) {
                 val appIndex = currentFocus?.tag as? Int
                 if (appIndex != null && appIndex in apps.indices) {
                     organizing = true; moving = appIndex
