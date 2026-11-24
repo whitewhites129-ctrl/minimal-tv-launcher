@@ -294,7 +294,7 @@ class MainActivity : Activity() {
             minWidth = dp(104); minHeight = dp(54)
             background = rounded(Color.rgb(25, 25, 25), 12, Color.rgb(70, 70, 70))
             setOnFocusChangeListener { v, focused -> v.background = rounded(if (focused) Color.rgb(18, 67, 105) else Color.rgb(25,25,25), 12, if (focused) accent else Color.rgb(70,70,70)) }
-            setOnClickListener { LauncherNotificationListener.instance?.clearAll(); refreshNotificationPanel(); close.requestFocus() }
+            setOnClickListener { LauncherNotificationListener.instance?.clearAll(); refreshNotificationPanel(); closeNotificationsPanel() }
         }
         val close = TextView(this).apply {
             id = View.generateViewId()
