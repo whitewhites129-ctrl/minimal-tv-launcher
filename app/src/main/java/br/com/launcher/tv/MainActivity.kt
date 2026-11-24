@@ -510,122 +510,57 @@ class MainActivity : Activity() {
     }
 
     private fun openWeatherScreen() {
-        if (screenRoot.findViewWithTag<View>("weather_screen") != null) return
-        val page = LinearLayout(this).apply {
-            tag = "weather_screen"; orientation = LinearLayout.VERTICAL
-            setPadding(dp(42), dp(24), dp(42), dp(22)); setBackgroundColor(Color.BLACK); isFocusable = true
-        }
-        page.addView(TextView(this).apply {
-            text = "Previsão do tempo"; textSize = 27f; setTextColor(Color.WHITE)
-            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-        })
-        page.addView(TextView(this).apply {
-            text = "São Bernardo do Campo • SP"; textSize = 14f; setTextColor(Color.LTGRAY)
-            setPadding(0, dp(4), 0, dp(14))
-        })
-        val current = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            background = rounded(Color.rgb(17, 22, 31), 20, Color.rgb(45, 55, 70))
-            setPadding(dp(22), dp(12), dp(22), dp(12))
-        }
-        current.addView(TextView(this).apply { text = weatherIcon.text; textSize = 54f; setTextColor(Color.WHITE) })
-        current.addView(TextView(this).apply {
-            text = weatherText.text; textSize = 22f; setTextColor(Color.WHITE); setPadding(dp(18), 0, 0, 0)
-        }, LinearLayout.LayoutParams(0, -2, 1f))
-        page.addView(current, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(18) })
-        page.addView(TextView(this).apply {
-            text = "Próximas horas"; textSize = 19f; setTextColor(Color.WHITE)
-            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-        })
-        val hourlyScroll = android.widget.HorizontalScrollView(this).apply {
-            isHorizontalScrollBarEnabled = false; overScrollMode = View.OVER_SCROLL_NEVER
-        }
-        val hourlyRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(10), 0, dp(18)) }
-        hourlyScroll.addView(hourlyRow); page.addView(hourlyScroll, LinearLayout.LayoutParams(-1, dp(145)))
-        page.addView(TextView(this).apply {
-            text = "Próximos 7 dias"; textSize = 19f; setTextColor(Color.WHITE)
-            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL); setPadding(0, dp(4), 0, dp(8))
-        })
-        val dailyScroll = android.widget.ScrollView(this).apply { isVerticalScrollBarEnabled = false }
-        val dailyColumn = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        dailyScroll.addView(dailyColumn); page.addView(dailyScroll, LinearLayout.LayoutParams(-1, 0, 1f))
-        val close = TextView(this).apply {
-            text = "Voltar"; textSize = 15f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
-            setPadding(dp(22), dp(10), dp(22), dp(10)); isFocusable = true; isClickable = true
-            background = rounded(Color.rgb(25, 25, 25), 14, Color.rgb(75, 75, 75))
-            setOnClickListener { screenRoot.removeView(page) }
-        }
-        page.addView(close, LinearLayout.LayoutParams(-2, -2).apply { topMargin = dp(10) })
-        screenRoot.addView(page, FrameLayout.LayoutParams(-1, -1))
-        close.requestFocus()
-        loadWeatherForecast(hourlyRow, dailyColumn)
-    }
-
-    private fun weatherDescription(code: Int): String = when (code) {
-        0 -> "Céu limpo"; 1 -> "Poucas nuvens"; 2 -> "Parcialmente nublado"; 3 -> "Nublado"
-        45, 48 -> "Neblina"; 51, 53, 55, 56, 57 -> "Garoa"
-        61, 63, 65, 66, 67 -> "Chuva"; 80, 81, 82 -> "Pancadas"; 95, 96, 99 -> "Trovoadas"
-        else -> "Tempo variável"
-    }
-
-    private fun weatherSymbol(code: Int): String = when {
-        code >= 95 -> "⛈"; code in 51..67 || code in 80..82 -> "🌧"
-        code == 45 || code == 48 -> "🌫"; code == 0 -> "☀"; code in 2..3 -> "☁"; else -> "🌤"
-    }
-
-    private fun loadWeatherForecast(hourlyRow: LinearLayout, dailyColumn: LinearLayout) {
+        if (weatherPage != null) return
+        val page = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(42), dp(28), dp(42), dp(24)); setBackgroundColor(Color.BLACK); isFocusable = true }
+        weatherPage = page
+        val top = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        top.addView(TextView(this).apply { text = "Previsão do tempo"; textSize = 27f; setTextColor(Color.WHITE) }, LinearLayout.LayoutParams(0, -2, 1f))
+        val close = TextView(this).apply { text = "✕  Fechar"; textSize = 16f; setTextColor(Color.WHITE); gravity = Gravity.CENTER; setPadding(dp(16), dp(10), dp(16), dp(10)); isFocusable = true; isClickable = true; background = rounded(Color.rgb(28, 28, 28), 14, Color.rgb(75, 75, 75)); setOnClickListener { screenRoot.removeView(page); weatherPage = null } }
+        top.addView(close); page.addView(top)
+        page.addView(TextView(this).apply { text = "São Bernardo do Campo • SP"; textSize = 15f; setTextColor(Color.LTGRAY); setPadding(0, dp(5), 0, dp(12)) })
+        page.addView(TextView(this).apply { text = weatherIcon.text.toString() + "   " + weatherText.text.toString(); textSize = 23f; setTextColor(Color.WHITE); setPadding(dp(18), dp(12), dp(18), dp(12)); background = rounded(Color.rgb(16, 24, 38), 18, Color.rgb(45, 65, 90)) }, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(16) })
+        page.addView(TextView(this).apply { text = "Próximas horas"; textSize = 19f; setTextColor(Color.WHITE); setPadding(0, 0, 0, dp(8)) })
+        val hs = android.widget.HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false }; val hr = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }; hs.addView(hr)
+        page.addView(hs, LinearLayout.LayoutParams(-1, dp(126)).apply { bottomMargin = dp(18) })
+        page.addView(TextView(this).apply { text = "Próximos dias"; textSize = 19f; setTextColor(Color.WHITE); setPadding(0, 0, 0, dp(8)) })
+        val ds = android.widget.ScrollView(this); val dl = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }; ds.addView(dl); page.addView(ds, LinearLayout.LayoutParams(-1, 0, 1f))
+        screenRoot.addView(page, FrameLayout.LayoutParams(-1, -1)); close.requestFocus()
         Thread {
             try {
-                val address = URL("https://api.open-meteo.com/v1/forecast?latitude=-23.6914&longitude=-46.5650&hourly=temperature_2m,precipitation_probability,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=America%2FSao_Paulo&forecast_days=7")
-                val connection = (address.openConnection() as HttpURLConnection).apply {
-                    connectTimeout = 12000; readTimeout = 12000; requestMethod = "GET"
-                    setRequestProperty("Accept", "application/json")
-                }
-                val json = JSONObject(connection.inputStream.bufferedReader().use { it.readText() }); connection.disconnect()
-                val hourly = json.getJSONObject("hourly")
-                val times = hourly.getJSONArray("time"); val temps = hourly.getJSONArray("temperature_2m")
-                val rain = hourly.getJSONArray("precipitation_probability"); val codes = hourly.getJSONArray("weather_code")
-                val daily = json.getJSONObject("daily")
-                val dates = daily.getJSONArray("time"); val max = daily.getJSONArray("temperature_2m_max")
-                val min = daily.getJSONArray("temperature_2m_min"); val dCodes = daily.getJSONArray("weather_code")
-                val dRain = daily.getJSONArray("precipitation_probability_max")
+                val url = URL("https://api.open-meteo.com/v1/forecast?latitude=-23.6914&longitude=-46.5650&hourly=temperature_2m,precipitation_probability,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&forecast_days=7&timezone=America%2FSao_Paulo")
+                val c = (url.openConnection() as HttpURLConnection).apply { connectTimeout = 12000; readTimeout = 12000 }
+                val j = JSONObject(c.inputStream.bufferedReader().use { it.readText() }); c.disconnect()
+                val h = j.getJSONObject("hourly"); val d = j.getJSONObject("daily")
                 runOnUiThread {
-                    hourlyRow.removeAllViews()
-                    val currentHour = SimpleDateFormat("HH", Locale.US).format(Date()).toInt()
-                    val nowIndex = (0 until times.length()).firstOrNull { times.getString(it).substringAfter("T").take(2).toInt() >= currentHour } ?: 0
-                    for (i in nowIndex until minOf(times.length(), nowIndex + 18)) {
-                        val item = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; setPadding(dp(13), dp(8), dp(13), dp(8)) }
-                        item.addView(TextView(this).apply { text = times.getString(i).substringAfter("T").take(5); textSize = 13f; setTextColor(Color.LTGRAY) })
-                        item.addView(TextView(this).apply { text = weatherSymbol(codes.getInt(i)); textSize = 27f; setTextColor(Color.WHITE); setPadding(0, dp(5), 0, dp(5)) })
-                        item.addView(TextView(this).apply { text = "${temps.getDouble(i).toInt()}°"; textSize = 17f; setTextColor(Color.WHITE) })
-                        item.addView(TextView(this).apply { text = "${rain.getInt(i)}%"; textSize = 12f; setTextColor(Color.rgb(125, 190, 245)) })
-                        hourlyRow.addView(item, LinearLayout.LayoutParams(dp(82), -2))
+                    hr.removeAllViews(); val ts = h.getJSONArray("time"); val tv = h.getJSONArray("temperature_2m"); val rp = h.getJSONArray("precipitation_probability"); val wc = h.getJSONArray("weather_code")
+                    val parser = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm", Locale.getDefault()); val fmt = java.text.SimpleDateFormat("HH:mm", Locale.getDefault())
+                    val first = (0 until ts.length()).firstOrNull { i -> try { !parser.parse(ts.getString(i)).before(Date()) } catch (_: Exception) { false } } ?: 0
+                    for (i in first until minOf(first + 24, ts.length())) {
+                        val card = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; setPadding(dp(9), dp(7), dp(9), dp(7)); background = rounded(Color.rgb(17, 23, 34), 14, Color.rgb(48, 60, 78)) }
+                        val hour = try { fmt.format(parser.parse(ts.getString(i))!!) } catch (_: Exception) { "--:--" }
+                        card.addView(TextView(this).apply { text = hour; textSize = 13f; setTextColor(Color.LTGRAY) })
+                        card.addView(TextView(this).apply { text = weatherSymbol(wc.getInt(i)); textSize = 24f; setTextColor(Color.WHITE) })
+                        card.addView(TextView(this).apply { text = tv.getDouble(i).toInt().toString() + "°"; textSize = 19f; setTextColor(Color.WHITE) })
+                        card.addView(TextView(this).apply { text = rp.optInt(i).toString() + "% chuva"; textSize = 11f; setTextColor(Color.rgb(155, 195, 235)) })
+                        hr.addView(card, LinearLayout.LayoutParams(dp(88), dp(112)).apply { rightMargin = dp(8) })
                     }
-                    dailyColumn.removeAllViews()
+                    dl.removeAllViews(); val dates = d.getJSONArray("time"); val mx = d.getJSONArray("temperature_2m_max"); val mn = d.getJSONArray("temperature_2m_min"); val ch = d.getJSONArray("precipitation_probability_max"); val codes = d.getJSONArray("weather_code")
+                    val df = java.text.SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()); val out = java.text.SimpleDateFormat("EEE, dd/MM", Locale("pt", "BR"))
                     for (i in 0 until dates.length()) {
-                        val dateValue = SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(dates.getString(i)) ?: Date()
-                        val dayName = when (i) { 0 -> "Hoje"; 1 -> "Amanhã"; else -> SimpleDateFormat("EEE", Locale("pt", "BR")).format(dateValue).replaceFirstChar { it.uppercase() } }
-                        val row = LinearLayout(this).apply {
-                            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-                            setPadding(dp(12), dp(10), dp(12), dp(10))
-                            background = rounded(Color.rgb(17, 22, 31), 13, Color.rgb(38, 45, 58))
-                        }
-                        row.addView(TextView(this).apply { text = dayName; textSize = 15f; setTextColor(Color.WHITE) }, LinearLayout.LayoutParams(dp(105), -2))
-                        row.addView(TextView(this).apply { text = weatherSymbol(dCodes.getInt(i)); textSize = 24f; setTextColor(Color.WHITE); gravity = Gravity.CENTER }, LinearLayout.LayoutParams(dp(48), -2))
-                        row.addView(TextView(this).apply { text = "${dRain.getInt(i)}%"; textSize = 13f; setTextColor(Color.rgb(125, 190, 245)); gravity = Gravity.CENTER }, LinearLayout.LayoutParams(0, -2, 1f))
-                        row.addView(TextView(this).apply { text = "${max.getDouble(i).toInt()}°   ${min.getDouble(i).toInt()}°"; textSize = 15f; setTextColor(Color.WHITE); gravity = Gravity.RIGHT }, LinearLayout.LayoutParams(dp(130), -2))
-                        dailyColumn.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(6) })
+                        val day = try { out.format(df.parse(dates.getString(i))!!) } catch (_: Exception) { dates.getString(i) }
+                        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(14), dp(10), dp(14), dp(10)); background = rounded(Color.rgb(17, 23, 34), 14, Color.rgb(48, 60, 78)) }
+                        row.addView(TextView(this).apply { text = day; textSize = 15f; setTextColor(Color.WHITE) }, LinearLayout.LayoutParams(dp(120), -2))
+                        row.addView(TextView(this).apply { text = weatherSymbol(codes.getInt(i)); textSize = 22f; setTextColor(Color.WHITE) }, LinearLayout.LayoutParams(dp(48), -2))
+                        row.addView(TextView(this).apply { text = mx.getDouble(i).toInt().toString() + "° / " + mn.getDouble(i).toInt() + "°"; textSize = 16f; setTextColor(Color.WHITE); gravity = Gravity.CENTER }, LinearLayout.LayoutParams(0, -2, 1f))
+                        row.addView(TextView(this).apply { text = ch.optInt(i).toString() + "%"; textSize = 14f; setTextColor(Color.rgb(155, 195, 235)) })
+                        dl.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(7) })
                     }
                 }
-            } catch (_: Exception) {
-                runOnUiThread { dailyColumn.addView(TextView(this).apply {
-                    text = "Não foi possível carregar a previsão. Verifique a conexão e tente novamente."
-                    setTextColor(Color.LTGRAY); textSize = 15f
-                }) }
-            }
+            } catch (_: Exception) { runOnUiThread { hr.removeAllViews(); hr.addView(TextView(this).apply { text = "Não foi possível carregar a previsão. Verifique a internet."; setTextColor(Color.LTGRAY); textSize = 15f }) } }
         }.start()
     }
 
+    private fun weatherSymbol(code: Int): String = when { code >= 95 -> "⛈"; code in 51..67 || code in 80..82 -> "🌧"; code == 45 || code == 48 -> "🌫"; code == 0 -> "☀"; code in 2..3 -> "☁"; else -> "🌤" }
     private fun openIntent(intent: Intent) {
         try { startActivity(intent) }
         catch (_: Exception) {
