@@ -31,7 +31,7 @@ import java.util.Date
 import java.util.Locale
 
 class MainActivity : Activity() {
-    private val accent = Color.rgb(45, 205, 255)
+    private val accent = Color.rgb(24, 142, 184)
     private val apps = mutableListOf<ResolveInfo>()
     private val prefs by lazy { getSharedPreferences("launcher_v2", MODE_PRIVATE) }
     private lateinit var clock: TextView
@@ -149,12 +149,12 @@ class MainActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
             setPadding(dp(12), dp(8), dp(12), dp(8))
-            background = rounded(Color.rgb(12, 17, 27), 18, Color.rgb(42, 55, 75))
+            background = rounded(Color.rgb(7, 11, 18), 18, Color.rgb(28, 40, 55))
             isFocusable = true
             isClickable = true
             setOnClickListener { openWeatherScreen() }
             setOnFocusChangeListener { v, focused ->
-                v.background = rounded(if (focused) Color.rgb(13, 38, 61) else Color.rgb(18, 24, 38),
+                v.background = rounded(if (focused) Color.rgb(8, 24, 39) else Color.rgb(8, 13, 22),
                     18, if (focused) accent else Color.rgb(42, 55, 75))
             }
         }
@@ -536,10 +536,10 @@ class MainActivity : Activity() {
         page.addView(hs, LinearLayout.LayoutParams(-1, dp(126)).apply { bottomMargin = dp(18) })
         page.addView(TextView(this).apply { text = "Próximos dias"; textSize = 19f; setTextColor(Color.WHITE); setPadding(0, 0, 0, dp(8)) })
         val ds = android.widget.ScrollView(this)
-        val dl = android.widget.GridLayout(this).apply { columnCount = 4; useDefaultMargins = false }
+        val dl = android.widget.GridLayout(this).apply { columnCount = 7; useDefaultMargins = false; isFocusable = false }
         ds.addView(dl)
         page.addView(ds, LinearLayout.LayoutParams(-1, 0, 1f))
-        screenRoot.addView(page, FrameLayout.LayoutParams(-1, -1)); page.isFocusableInTouchMode = true; page.requestFocus()
+        screenRoot.addView(page, FrameLayout.LayoutParams(-1, -1)); page.isFocusableInTouchMode = false
         Thread {
             try {
                 val url = URL("https://api.open-meteo.com/v1/forecast?latitude=-23.7717&longitude=-46.59097&hourly=temperature_2m,precipitation_probability,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&forecast_days=7&timezone=America%2FSao_Paulo")
@@ -569,10 +569,10 @@ class MainActivity : Activity() {
                             val card = LinearLayout(this).apply {
                                 orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
                                 setPadding(dp(9), dp(7), dp(9), dp(7))
-                                background = rounded(Color.rgb(17, 23, 34), 14, if (currentHour) accent else Color.rgb(48,60,78))
+                                background = rounded(Color.rgb(7, 11, 18), 14, if (currentHour) accent else Color.rgb(29, 41, 56))
                                 isFocusable = true; isClickable = true
                                 setOnFocusChangeListener { v, focused ->
-                                    v.background = rounded(Color.rgb(17,23,34), 14, if (focused || currentHour) accent else Color.rgb(48,60,78))
+                                    v.background = rounded(Color.rgb(7, 11, 18), 14, if (focused || currentHour) accent else Color.rgb(48,60,78))
                                 }
                             }
                             val hourRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
@@ -609,26 +609,26 @@ class MainActivity : Activity() {
                         val card = LinearLayout(this).apply {
                             orientation = LinearLayout.VERTICAL
                             gravity = Gravity.CENTER
-                            setPadding(dp(8), dp(9), dp(8), dp(9))
-                            background = rounded(Color.rgb(12, 17, 27), 13, Color.rgb(43, 57, 76))
+                            setPadding(dp(4), dp(8), dp(4), dp(8))
+                            background = rounded(Color.rgb(12, 17, 27), 13, Color.rgb(30, 42, 57))
                             isFocusable = true
                             isClickable = true
                             setOnFocusChangeListener { v, focused ->
-                                v.background = rounded(if (focused) Color.rgb(13, 38, 61) else Color.rgb(12,17,27), 13, if (focused) accent else Color.rgb(43,57,76))
+                                v.background = rounded(if (focused) Color.rgb(13, 38, 61) else Color.rgb(12,17,27), 13, if (focused) accent else Color.rgb(30, 42, 57))
                             }
                             setOnClickListener { renderHoursForDate(dateKey) }
                         }
-                        card.addView(TextView(this).apply { text = day; textSize = 13f; setTextColor(Color.WHITE); gravity = Gravity.CENTER })
-                        card.addView(TextView(this).apply { text = weatherSymbol(codes.getInt(i)); textSize = 25f; setTextColor(Color.WHITE); gravity = Gravity.CENTER; setPadding(0, dp(3), 0, dp(3)) })
-                        card.addView(TextView(this).apply { text = mx.getDouble(i).toInt().toString() + "° / " + mn.getDouble(i).toInt() + "°"; textSize = 13f; setTextColor(Color.WHITE); gravity = Gravity.CENTER })
-                        card.addView(TextView(this).apply { text = ch.optInt(i).toString() + "% chuva"; textSize = 11f; setTextColor(Color.rgb(155,195,235)); gravity = Gravity.CENTER })
+                        card.addView(TextView(this).apply { text = day; textSize = 11f; setTextColor(Color.WHITE); gravity = Gravity.CENTER; maxLines = 1 })
+                        card.addView(TextView(this).apply { text = weatherSymbol(codes.getInt(i)); textSize = 21f; setTextColor(Color.WHITE); gravity = Gravity.CENTER; setPadding(0, dp(3), 0, dp(3)) })
+                        card.addView(TextView(this).apply { text = mx.getDouble(i).toInt().toString() + "° / " + mn.getDouble(i).toInt() + "°"; textSize = 11f; setTextColor(Color.WHITE); gravity = Gravity.CENTER; maxLines = 1 })
+                        card.addView(TextView(this).apply { text = ch.optInt(i).toString() + "%"; textSize = 10f; setTextColor(Color.rgb(155,195,235)); gravity = Gravity.CENTER })
                         val params = android.widget.GridLayout.LayoutParams(
                             android.widget.GridLayout.spec(android.widget.GridLayout.UNDEFINED, 1f),
                             android.widget.GridLayout.spec(android.widget.GridLayout.UNDEFINED, 1f)
                         ).apply {
                             width = 0
-                            height = dp(104)
-                            setMargins(dp(4), dp(4), dp(4), dp(4))
+                            height = dp(120)
+                            setMargins(dp(3), dp(4), dp(3), dp(4))
                         }
                         dl.addView(card, params)
                     }                }
