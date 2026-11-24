@@ -632,7 +632,7 @@ class MainActivity : Activity() {
                     val todayKey = java.text.SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
                     selectedDayKey = todayKey
                     renderHoursForDate(todayKey, true)
-                    dl.removeAllViews(); dayCards.clear() val dates = d.getJSONArray("time"); val mx = d.getJSONArray("temperature_2m_max"); val mn = d.getJSONArray("temperature_2m_min"); val ch = d.getJSONArray("precipitation_probability_max"); val codes = d.getJSONArray("weather_code")
+                    dl.removeAllViews(); dayCards.clear(); val dates = d.getJSONArray("time"); val mx = d.getJSONArray("temperature_2m_max"); val mn = d.getJSONArray("temperature_2m_min"); val ch = d.getJSONArray("precipitation_probability_max"); val codes = d.getJSONArray("weather_code")
                     val df = java.text.SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
                     val out = java.text.SimpleDateFormat("EEE, dd/MM", Locale("pt", "BR"))
                     firstDayCard = null
@@ -652,7 +652,7 @@ class MainActivity : Activity() {
                             setOnFocusChangeListener { v, focused ->
                                 v.background = rounded(if (focused) Color.rgb(13, 38, 61) else Color.rgb(12,17,27), 13, if (focused || dateKey == selectedDayKey) accent else Color.rgb(30, 42, 57))
                             }
-                            setOnClickListener {
+                            setOnClickListener { clickedView ->
                                 selectedDayKey = dateKey
                                 dayCards.forEach { day ->
                                     val isSelected = (day.tag as? String) == selectedDayKey
@@ -661,7 +661,7 @@ class MainActivity : Activity() {
                                         if (isFocused || isSelected) accent else Color.rgb(30, 42, 57))
                                 }
                                 renderHoursForDate(dateKey, false)
-                                requestFocus()
+                                clickedView.requestFocus()
                             }
                         }
                         card.addView(TextView(this).apply { text = day; textSize = 11f; setTextColor(Color.WHITE); gravity = Gravity.CENTER; maxLines = 1 })
