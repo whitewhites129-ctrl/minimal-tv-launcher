@@ -543,20 +543,40 @@ class MainActivity : Activity() {
                     hr.removeAllViews(); val ts = h.getJSONArray("time"); val tv = h.getJSONArray("temperature_2m"); val rp = h.getJSONArray("precipitation_probability"); val wc = h.getJSONArray("weather_code")
                     val parser = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm", Locale.getDefault()); val fmt = java.text.SimpleDateFormat("HH:mm", Locale.getDefault())
                     val first = (0 until ts.length()).firstOrNull { i -> try { !parser.parse(ts.getString(i)).before(Date()) } catch (_: Exception) { false } } ?: 0
-                    for (i in first until minOf(first + 24, ts.length())) {
-                        val card = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; setPadding(dp(9), dp(7), dp(9), dp(7)); background = rounded(Color.rgb(17, 23, 34), 14, Color.rgb(48, 60, 78)) }
-                        val hour = try { fmt.format(parser.parse(ts.getString(i))!!) } catch (_: Exception) { "--:--" }
-                        card.addView(TextView(this).apply { text = hour; textSize = 13f; setTextColor(Color.LTGRAY) })
-                        card.addView(TextView(this).apply { text = weatherSymbol(wc.getInt(i)); textSize = 24f; setTextColor(Color.WHITE) })
-                        card.addView(TextView(this).apply { text = tv.getDouble(i).toInt().toString() + "°"; textSize = 19f; setTextColor(Color.WHITE) })
-                        card.addView(TextView(this).apply { text = rp.optInt(i).toString() + "% chuva"; textSize = 11f; setTextColor(Color.rgb(155, 195, 235)) })
-                        hr.addView(card, LinearLayout.LayoutParams(dp(88), dp(112)).apply { rightMargin = dp(8) })
+                    fun renderHoursForDate(dateKey: String) {
+                        hr.removeAllViews()
+                        val indices = (0 until ts.length()).filter { ts.getString(it).startsWith(dateKey) }
+                        indices.forEach { i ->
+                            val card = LinearLayout(this).apply {
+                                orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
+                                setPadding(dp(9), dp(7), dp(9), dp(7))
+                                background = rounded(Color.rgb(17, 23, 34), 14, Color.rgb(48, 60, 78))
+                                isFocusable = true; isClickable = true
+                                setOnFocusChangeListener { v, focused -> v.background = rounded(if (focused) Color.rgb(22, 43, 65) else Color.rgb(17,23,34), 14, if (focused) accent else Color.rgb(48,60,78)) }
+                            }
+                            val hour = try { fmt.format(parser.parse(ts.getString(i))!!) } catch (_: Exception) { "--:--" }
+                            card.addView(TextView(this).apply { text = hour; textSize = 13f; setTextColor(Color.LTGRAY) })
+                            card.addView(TextView(this).apply { text = weatherSymbol(wc.getInt(i)); textSize = 24f; setTextColor(Color.WHITE) })
+                            card.addView(TextView(this).apply { text = tv.getDouble(i).toInt().toString() + "°"; textSize = 19f; setTextColor(Color.WHITE) })
+                            card.addView(TextView(this).apply { text = rp.optInt(i).toString() + "% chuva"; textSize = 11f; setTextColor(Color.rgb(155,195,235)) })
+                            hr.addView(card, LinearLayout.LayoutParams(dp(88), dp(112)).apply { rightMargin = dp(8) })
+                        }
+                        if (indices.isNotEmpty()) hs.post { hs.scrollTo(0, 0); hr.getChildAt(0)?.requestFocus() }
                     }
-                    dl.removeAllViews(); val dates = d.getJSONArray("time"); val mx = d.getJSONArray("temperature_2m_max"); val mn = d.getJSONArray("temperature_2m_min"); val ch = d.getJSONArray("precipitation_probability_max"); val codes = d.getJSONArray("weather_code")
+                    val todayKey = java.text.SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+                    renderHoursForDate(todayKey)
+                    dl.removeAllViews();                    dl.removeAllViews(); val dates = d.getJSONArray("time"); val mx = d.getJSONArray("temperature_2m_max"); val mn = d.getJSONArray("temperature_2m_min"); val ch = d.getJSONArray("precipitation_probability_max"); val codes = d.getJSONArray("weather_code")
                     val df = java.text.SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()); val out = java.text.SimpleDateFormat("EEE, dd/MM", Locale("pt", "BR"))
                     for (i in 0 until dates.length()) {
                         val day = try { out.format(df.parse(dates.getString(i))!!) } catch (_: Exception) { dates.getString(i) }
-                        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(14), dp(10), dp(14), dp(10)); background = rounded(Color.rgb(17, 23, 34), 14, Color.rgb(48, 60, 78)) }
+                        val row = LinearLayout(this).apply {
+                            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+                            setPadding(dp(14), dp(10), dp(14), dp(10))
+                            background = rounded(Color.rgb(17, 23, 34), 14, Color.rgb(48, 60, 78))
+                            isFocusable = true; isClickable = true
+                            setOnFocusChangeListener { v, focused -> v.background = rounded(if (focused) Color.rgb(22, 43, 65) else Color.rgb(17,23,34), 14, if (focused) accent else Color.rgb(48,60,78)) }
+                            setOnClickListener { renderHoursForDate(dates.getString(i)) }
+                        }
                         row.addView(TextView(this).apply { text = day; textSize = 15f; setTextColor(Color.WHITE) }, LinearLayout.LayoutParams(dp(120), -2))
                         row.addView(TextView(this).apply { text = weatherSymbol(codes.getInt(i)); textSize = 22f; setTextColor(Color.WHITE) }, LinearLayout.LayoutParams(dp(48), -2))
                         row.addView(TextView(this).apply { text = mx.getDouble(i).toInt().toString() + "° / " + mn.getDouble(i).toInt() + "°"; textSize = 16f; setTextColor(Color.WHITE); gravity = Gravity.CENTER }, LinearLayout.LayoutParams(0, -2, 1f))
