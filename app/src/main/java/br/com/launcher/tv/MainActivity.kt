@@ -95,6 +95,10 @@ class MainActivity : Activity() {
         }
         scroll.addView(appGrid, ViewGroup.LayoutParams(-1, -2))
         content.addView(scroll, FrameLayout.LayoutParams(-1, -1))
+        scroll.post {
+            val extra = scroll.height - appGrid.height
+            appGrid.translationY = if (extra > 0) extra / 2f else 0f
+        }
         root.addView(content, LinearLayout.LayoutParams(-1, 0, 1f))
 
         screenRoot = FrameLayout(this)
@@ -155,12 +159,9 @@ class MainActivity : Activity() {
         weatherPill.addView(weatherIcon)
         weatherPill.addView(weatherText)
         actions.addView(weatherPill)
-        actions.addView(headerAction("♧", "Notificações") {
-            try { startActivity(Intent("android.settings.NOTIFICATION_SETTINGS")) }
-            catch (_: Exception) { openIntent(Intent(Settings.ACTION_SETTINGS)) }
-        })
-        actions.addView(headerAction("⚙", "Configurações") { openIntent(Intent(Settings.ACTION_SETTINGS)) })
-        actions.addView(headerAction("🎙", "Pesquisa por voz") { openVoice() })
+        actions.addView(headerAction(R.drawable.ic_notifications_modern, "Painel rápido") { showQuickPanel() })
+        actions.addView(headerAction(R.drawable.ic_settings_modern, "Configurações") { openIntent(Intent(Settings.ACTION_SETTINGS)) })
+        actions.addView(headerAction(R.drawable.ic_mic_modern, "Pesquisa por voz") { openVoice() })
         header.orientation = LinearLayout.HORIZONTAL
         header.gravity = Gravity.CENTER_VERTICAL
         header.addView(left, LinearLayout.LayoutParams(0, -1, 1f))
@@ -169,16 +170,15 @@ class MainActivity : Activity() {
         return header
     }
 
-    private fun headerAction(glyph: String, description: String, action: () -> Unit): View {
-        return TextView(this).apply {
-            text = glyph
-            textSize = 25f
-            gravity = Gravity.CENTER
-            setTextColor(Color.rgb(220, 232, 246))
+    private fun headerAction(iconRes: Int, description: String, action: () -> Unit): View {
+        return ImageView(this).apply {
+            setImageResource(iconRes)
+            imageTintList = android.content.res.ColorStateList.valueOf(Color.rgb(224, 235, 248))
+            scaleType = ImageView.ScaleType.FIT_CENTER
             contentDescription = description
             isFocusable = true
             isClickable = true
-            setPadding(dp(13), dp(10), dp(13), dp(10))
+            setPadding(dp(14), dp(14), dp(14), dp(14))
             background = rounded(Color.TRANSPARENT, 18, Color.TRANSPARENT)
             setOnClickListener { action() }
             setOnFocusChangeListener { v, focused ->
@@ -188,6 +188,86 @@ class MainActivity : Activity() {
                 v.scaleY = if (focused) 1.08f else 1f
             }
         }
+    }
+
+    private fun showQuickPanel() {
+        if (screenRoot.findViewWithTag<View>("quick_panel") != null) return
+        val scrim = FrameLayout(this).apply {
+            tag = "quick_panel"
+            setBackgroundColor(Color.argb(125, 0, 0, 0))
+            isFocusable = true
+            setOnClickListener { screenRoot.removeView(this) }
+        }
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.TOP
+            setPadding(dp(26), dp(30), dp(26), dp(24))
+            background = rounded(Color.rgb(25, 34, 55), 26, Color.rgb(74, 105, 155))
+            isFocusable = true
+            isClickable = true
+            setOnClickListener { }
+        }
+        panel.addView(TextView(this).apply {
+            text = "Painel rápido"
+            textSize = 25f
+            setTextColor(Color.WHITE)
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        })
+        panel.addView(TextView(this).apply {
+            text = SimpleDateFormat("EEE, d 'de' MMMM  •  HH:mm", Locale("pt", "BR")).format(Date())
+            textSize = 14f
+            setTextColor(Color.rgb(190, 205, 226))
+            setPadding(0, dp(5), 0, dp(22))
+        })
+        fun panelAction(title: String, subtitle: String, glyph: String, intent: Intent) {
+            val tile = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(17), dp(13), dp(17), dp(13))
+                background = rounded(Color.rgb(43, 58, 88), 17, Color.rgb(62, 82, 119))
+                isFocusable = true
+                isClickable = true
+                setOnClickListener {
+                    screenRoot.removeView(scrim)
+                    openIntent(intent)
+                }
+                setOnFocusChangeListener { v, focused ->
+                    v.background = rounded(if (focused) Color.rgb(30, 91, 145) else Color.rgb(43, 58, 88),
+                        17, if (focused) accent else Color.rgb(62, 82, 119))
+                }
+            }
+            tile.addView(TextView(this).apply {
+                text = "$glyph   $title"
+                textSize = 17f
+                setTextColor(Color.WHITE)
+                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            })
+            tile.addView(TextView(this).apply {
+                text = subtitle
+                textSize = 12f
+                setTextColor(Color.rgb(190, 205, 226))
+                setPadding(dp(34), dp(3), 0, 0)
+            })
+            panel.addView(tile, LinearLayout.LayoutParams(-1, dp(76)).apply { bottomMargin = dp(10) })
+        }
+        panelAction("Wi-Fi e internet", "Conexão de rede", "◉", Intent("android.settings.panel.action.INTERNET_CONNECTIVITY"))
+        panelAction("Bluetooth", "Dispositivos conectados", "ᛒ", Intent(Settings.ACTION_BLUETOOTH_SETTINGS))
+        panelAction("Notificações", "Preferências e permissões", "●", Intent("android.settings.NOTIFICATION_SETTINGS"))
+        panelAction("Todas as configurações", "Abrir configurações do sistema", "⚙", Intent(Settings.ACTION_SETTINGS))
+        val close = TextView(this).apply {
+            text = "Fechar"
+            textSize = 15f
+            gravity = Gravity.CENTER
+            setTextColor(Color.WHITE)
+            isFocusable = true
+            isClickable = true
+            setOnClickListener { screenRoot.removeView(scrim) }
+            background = rounded(Color.rgb(35, 50, 77), 16, Color.TRANSPARENT)
+        }
+        panel.addView(close, LinearLayout.LayoutParams(-1, dp(48)))
+        scrim.addView(panel, FrameLayout.LayoutParams(dp(390), -1, Gravity.RIGHT))
+        screenRoot.addView(scrim, FrameLayout.LayoutParams(-1, -1))
+        panel.getChildAt(0).requestFocus()
     }
 
     private fun actionButton(iconRes: Int, description: String, action: () -> Unit): View {
