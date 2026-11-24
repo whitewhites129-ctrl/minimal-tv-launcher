@@ -260,7 +260,11 @@ class MainActivity : Activity() {
 
     private fun addAppCard(app: ResolveInfo, index: Int, width: Int, height: Int, row: Int, col: Int) {
         val card = createCard()
-        val banner = try { app.loadBanner(packageManager) } catch (_: Exception) { null }
+        val banner = try {
+        val activityInfo = app.activityInfo
+        val bannerRes = if (activityInfo.banner != 0) activityInfo.banner else activityInfo.applicationInfo.banner
+        if (bannerRes != 0) packageManager.getDrawable(activityInfo.packageName, bannerRes, activityInfo.applicationInfo) else null
+    } catch (_: Exception) { null }
         val artwork = banner ?: app.loadIcon(packageManager)
         val image = ImageView(this).apply {
             setImageDrawable(artwork)
