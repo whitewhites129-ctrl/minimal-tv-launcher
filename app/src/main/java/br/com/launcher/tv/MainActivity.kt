@@ -77,10 +77,7 @@ class MainActivity : Activity() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(52), dp(28), dp(52), dp(28))
-            background = GradientDrawable(
-                GradientDrawable.Orientation.TL_BR,
-                intArrayOf(Color.rgb(2, 6, 14), Color.rgb(4, 13, 27), Color.rgb(2, 7, 16))
-            )
+            setBackgroundColor(Color.BLACK)
             layoutParams = ViewGroup.LayoutParams(-1, -1)
         }
         root.addView(createHeader(), LinearLayout.LayoutParams(-1, dp(108)))
@@ -269,9 +266,9 @@ class MainActivity : Activity() {
         appGrid.columnCount = 5
         val screenWidth = (resources.displayMetrics.widthPixels / resources.displayMetrics.density).toInt()
         val available = screenWidth - 104
-        val tileWidth = (available / 5).coerceIn(dp(142), dp(220))
+        val tileWidth = ((available - dp(64)) / 5).coerceIn(dp(128), dp(190))
         val availableHeight = (resources.displayMetrics.heightPixels / resources.displayMetrics.density).toInt() - 108 - 54 - 56
-        val tileHeight = dp(((availableHeight - 44) / 2).coerceIn(118, 158))
+        val tileHeight = dp(((availableHeight - 76) / 2).coerceIn(104, 126))
         val visible = if (showingAll) apps.toList() else apps.take(if (apps.size > 10) 9 else 10)
         if (showingAll) {
             visible.forEachIndexed { index, app ->
@@ -298,16 +295,9 @@ class MainActivity : Activity() {
             setImageDrawable(app.loadIcon(packageManager))
             scaleType = ImageView.ScaleType.FIT_CENTER
         }
-        card.addView(icon, LinearLayout.LayoutParams(dp(76), dp(76)))
-        card.addView(TextView(this).apply {
-            text = app.loadLabel(packageManager).toString()
-            textSize = 15f
-            setTextColor(Color.WHITE)
-            gravity = Gravity.CENTER
-            maxLines = 2
-            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-            setPadding(dp(2), dp(8), dp(2), 0)
-        }, LinearLayout.LayoutParams(-1, -2))
+        card.addView(icon, LinearLayout.LayoutParams(dp(66), dp(66)))
+        card.background = appCardBackground(app.activityInfo.packageName)
+        card.setPadding(dp(8), dp(8), dp(8), dp(8))
         card.contentDescription = app.loadLabel(packageManager).toString()
         card.setOnClickListener { launch(app) }
         card.setOnLongClickListener {
@@ -338,17 +328,36 @@ class MainActivity : Activity() {
         orientation = LinearLayout.VERTICAL
         gravity = Gravity.CENTER
         setPadding(dp(10), dp(12), dp(10), dp(10))
-        background = rounded(Color.rgb(5, 13, 25), 20, Color.rgb(24, 49, 75))
+        background = rounded(Color.rgb(14, 18, 27), 20, Color.rgb(35, 43, 56))
         isFocusable = true
         isFocusableInTouchMode = true
         isClickable = true
         setOnFocusChangeListener { view, focused ->
             view.background = rounded(
-                if (focused) Color.rgb(7, 29, 47) else Color.rgb(5, 13, 25),
+                if (focused) Color.rgb(17, 39, 62) else Color.rgb(14, 18, 27),
                 20,
-                if (focused) accent else Color.rgb(24, 49, 75)
+                if (focused) accent else Color.rgb(35, 43, 56)
             )
             view.elevation = if (focused) dp(9).toFloat() else 0f
+        }
+    }
+
+    private fun appCardBackground(packageName: String): GradientDrawable {
+        val colors = when {
+            packageName.contains("cinegato", true) -> intArrayOf(Color.rgb(83, 24, 130), Color.rgb(35, 13, 62))
+            packageName.contains("camera", true) -> intArrayOf(Color.rgb(0, 177, 194), Color.rgb(0, 82, 111))
+            packageName.contains("fx", true) -> intArrayOf(Color.rgb(20, 79, 145), Color.rgb(5, 25, 58))
+            packageName.contains("speed", true) -> intArrayOf(Color.rgb(244, 244, 244), Color.rgb(183, 207, 220))
+            packageName.contains("play", true) -> intArrayOf(Color.rgb(0, 116, 170), Color.rgb(31, 45, 102))
+            packageName.contains("saimo", true) -> intArrayOf(Color.rgb(205, 222, 240), Color.rgb(86, 137, 188))
+            packageName.contains("send", true) -> intArrayOf(Color.rgb(0, 177, 220), Color.rgb(0, 70, 155))
+            packageName.contains("smart", true) -> intArrayOf(Color.rgb(198, 20, 48), Color.rgb(75, 5, 20))
+            packageName.contains("unitv", true) -> intArrayOf(Color.rgb(245, 202, 186), Color.rgb(179, 65, 110))
+            else -> intArrayOf(Color.rgb(15, 68, 130), Color.rgb(5, 18, 44))
+        }
+        return GradientDrawable(GradientDrawable.Orientation.TL_BR, colors).apply {
+            cornerRadius = dp(22).toFloat()
+            setStroke(dp(1), Color.argb(90, 255, 255, 255))
         }
     }
 
