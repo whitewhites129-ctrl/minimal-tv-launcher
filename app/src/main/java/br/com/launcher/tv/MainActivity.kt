@@ -535,7 +535,7 @@ class MainActivity : Activity() {
         top.addView(TextView(this).apply { text = "Previsão do tempo"; textSize = 27f; setTextColor(Color.WHITE) })
         page.addView(top)
         page.addView(TextView(this).apply { text = "Batistini • São Bernardo do Campo, SP"; textSize = 15f; setTextColor(Color.LTGRAY); setPadding(0, dp(5), 0, dp(12)) })
-        page.addView(TextView(this).apply { text = weatherIcon.text.toString() + "   " + weatherText.text.toString(); textSize = 23f; setTextColor(Color.WHITE); setPadding(dp(18), dp(12), dp(18), dp(12)); background = rounded(Color.rgb(16, 24, 38), 18, Color.rgb(45, 65, 90)) }, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(16) })
+        page.addView(TextView(this).apply { text = weatherIcon.text.toString() + "   " + weatherText.text.toString(); textSize = 19f; setTextColor(Color.WHITE); setPadding(dp(18), dp(10), dp(18), dp(10)); background = rounded(Color.rgb(16, 24, 38), 18, Color.rgb(45, 65, 90)) }, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(16) })
         val hoursTitle = TextView(this).apply { text = "Previsão por hora — hoje"; textSize = 19f; setTextColor(Color.WHITE); setPadding(0, 0, 0, dp(8)) }
         page.addView(hoursTitle)
         val hs = android.widget.HorizontalScrollView(this).apply {
@@ -570,7 +570,9 @@ class MainActivity : Activity() {
                     val first = (0 until ts.length()).firstOrNull { i -> try { !parser.parse(ts.getString(i)).before(Date()) } catch (_: Exception) { false } } ?: 0
                     var selectedHourCard: View? = null
                     var firstDayCard: View? = null
-                    fun renderHoursForDate(dateKey: String) {
+                    var selectedDayKey = ""
+                    val dayCards = mutableListOf<View>()
+                    fun renderHoursForDate(dateKey: String, focusFirstHour: Boolean = false) {
                         val parsedDay = try { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(dateKey) } catch (_: Exception) { null }
                         val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
                         val dayLabel = if (dateKey == today) "Hoje" else try { SimpleDateFormat("EEEE", Locale("pt", "BR")).format(parsedDay!!).replaceFirstChar { it.uppercase() } } catch (_: Exception) { dateKey }
@@ -613,11 +615,14 @@ class MainActivity : Activity() {
                             card.addView(TextView(this).apply { text = tv.getDouble(i).toInt().toString() + "°"; textSize = 19f; setTextColor(Color.WHITE) })
                             card.addView(TextView(this).apply { text = rp.optInt(i).toString() + "% chuva"; textSize = 11f; setTextColor(Color.rgb(155,195,235)) })
                             hr.addView(card, LinearLayout.LayoutParams(dp(88), dp(112)).apply { rightMargin = dp(8) })
-                            if (currentHour) selectedHourCard = card
-                        }
-                        if (indices.isNotEmpty()) hs.post {
-                            val selected = nowIndex?.let { indices.indexOf(it) } ?: 0
-                            val target = hr.getChildAt(selected)
+                            }
+                        val preferredIndex = nowIndex?.let { indices.indexOf(it) } ?: 0
+                        selectedHourCard = hr.getChildAt(preferredIndex) ?: hr.getChildAt(0)
+                        // Refresh explicit vertical navigation after replacing the hourly cards.
+                        val returnTarget = selectedHourCard
+                        dayCards.forEach { it.nextFocusUpId = returnTarget?.id ?: it.id }
+                        if (focusFirstHour && indices.isNotEmpty()) hs.post {
+                            val target = selectedHourCard
                             if (target != null) {
                                 hs.scrollTo((target.left - dp(24)).coerceAtLeast(0), 0)
                                 target.requestFocus()
@@ -625,8 +630,9 @@ class MainActivity : Activity() {
                         }
                     }
                     val todayKey = java.text.SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
-                    renderHoursForDate(todayKey)
-                    dl.removeAllViews(); val dates = d.getJSONArray("time"); val mx = d.getJSONArray("temperature_2m_max"); val mn = d.getJSONArray("temperature_2m_min"); val ch = d.getJSONArray("precipitation_probability_max"); val codes = d.getJSONArray("weather_code")
+                    selectedDayKey = todayKey
+                    renderHoursForDate(todayKey, true)
+                    dl.removeAllViews(); dayCards.clear() val dates = d.getJSONArray("time"); val mx = d.getJSONArray("temperature_2m_max"); val mn = d.getJSONArray("temperature_2m_min"); val ch = d.getJSONArray("precipitation_probability_max"); val codes = d.getJSONArray("weather_code")
                     val df = java.text.SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
                     val out = java.text.SimpleDateFormat("EEE, dd/MM", Locale("pt", "BR"))
                     firstDayCard = null
@@ -635,21 +641,32 @@ class MainActivity : Activity() {
                         val day = if (dateKey == todayKey) "Hoje" else try { out.format(df.parse(dateKey)!!) } catch (_: Exception) { dateKey }
                         val card = LinearLayout(this).apply {
                             id = View.generateViewId()
+                            tag = dateKey
                             orientation = LinearLayout.VERTICAL
                             gravity = Gravity.CENTER
                             setPadding(dp(4), dp(8), dp(4), dp(8))
-                            background = rounded(Color.rgb(12, 17, 27), 13, Color.rgb(30, 42, 57))
+                            background = rounded(Color.rgb(12, 17, 27), 13, if (dateKey == selectedDayKey) accent else Color.rgb(30, 42, 57))
                             isFocusable = true
                             isFocusableInTouchMode = true
                             isClickable = true
                             setOnFocusChangeListener { v, focused ->
-                                v.background = rounded(if (focused) Color.rgb(13, 38, 61) else Color.rgb(12,17,27), 13, if (focused) accent else Color.rgb(30, 42, 57))
+                                v.background = rounded(if (focused) Color.rgb(13, 38, 61) else Color.rgb(12,17,27), 13, if (focused || dateKey == selectedDayKey) accent else Color.rgb(30, 42, 57))
                             }
-                            setOnClickListener { renderHoursForDate(dateKey) }
+                            setOnClickListener {
+                                selectedDayKey = dateKey
+                                dayCards.forEach { day ->
+                                    val isSelected = (day.tag as? String) == selectedDayKey
+                                    val isFocused = day.hasFocus()
+                                    day.background = rounded(if (isFocused) Color.rgb(13, 38, 61) else Color.rgb(12, 17, 27), 13,
+                                        if (isFocused || isSelected) accent else Color.rgb(30, 42, 57))
+                                }
+                                renderHoursForDate(dateKey, false)
+                                requestFocus()
+                            }
                         }
                         card.addView(TextView(this).apply { text = day; textSize = 11f; setTextColor(Color.WHITE); gravity = Gravity.CENTER; maxLines = 1 })
                         card.addView(TextView(this).apply { text = weatherSymbol(codes.getInt(i)); textSize = 21f; setTextColor(Color.WHITE); gravity = Gravity.CENTER; setPadding(0, dp(3), 0, dp(3)) })
-                        card.addView(TextView(this).apply { text = mx.getDouble(i).toInt().toString() + "° / " + mn.getDouble(i).toInt() + "°"; textSize = 11f; setTextColor(Color.WHITE); gravity = Gravity.CENTER; maxLines = 1 })
+                        card.addView(TextView(this).apply { text = mn.getDouble(i).toInt().toString() + "° / " + mx.getDouble(i).toInt() + "°"; textSize = 11f; setTextColor(Color.WHITE); gravity = Gravity.CENTER; maxLines = 1 })
                         card.addView(TextView(this).apply { text = ch.optInt(i).toString() + "%"; textSize = 10f; setTextColor(Color.rgb(155,195,235)); gravity = Gravity.CENTER })
                         val params = android.widget.GridLayout.LayoutParams(
                             android.widget.GridLayout.spec(android.widget.GridLayout.UNDEFINED, 1f),
@@ -660,11 +677,12 @@ class MainActivity : Activity() {
                             setMargins(dp(3), dp(4), dp(3), dp(4))
                         }
                         dl.addView(card, params)
+                        dayCards.add(card)
                         if (firstDayCard == null) firstDayCard = card
                     }
                     // Keep DPAD focus strictly inside the two forecast sections.
                     val hourCards = (0 until hr.childCount).map { hr.getChildAt(it) }
-                    val dayCards = (0 until dl.childCount).map { dl.getChildAt(it) }
+                    val allDayCards = (0 until dl.childCount).map { dl.getChildAt(it) }
                     val firstHour = hourCards.firstOrNull()
                     val lastHour = hourCards.lastOrNull()
                     val firstDay = firstDayCard
@@ -675,7 +693,7 @@ class MainActivity : Activity() {
                         card.nextFocusUpId = card.id
                         card.nextFocusDownId = firstDay?.id ?: card.id
                     }
-                    dayCards.forEachIndexed { index, card ->
+                    allDayCards.forEachIndexed { index, card ->
                         card.nextFocusLeftId = dayCards.getOrNull(index - 1)?.id ?: card.id
                         card.nextFocusRightId = dayCards.getOrNull(index + 1)?.id ?: card.id
                         card.nextFocusUpId = returnHour?.id ?: card.id
