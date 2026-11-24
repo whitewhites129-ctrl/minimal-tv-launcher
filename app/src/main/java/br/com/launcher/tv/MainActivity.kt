@@ -618,9 +618,22 @@ class MainActivity : Activity() {
                             }
                         val preferredIndex = nowIndex?.let { indices.indexOf(it) } ?: 0
                         selectedHourCard = hr.getChildAt(preferredIndex) ?: hr.getChildAt(0)
-                        // Refresh explicit vertical navigation after replacing the hourly cards.
+                        // Rebuild ALL DPAD links whenever the hourly row is recreated.
+                        // Old hour-card IDs become invalid after hr.removeAllViews().
+                        val freshHourCards = (0 until hr.childCount).map { hr.getChildAt(it) }
                         val returnTarget = selectedHourCard
-                        dayCards.forEach { it.nextFocusUpId = returnTarget?.id ?: it.id }
+                        freshHourCards.forEachIndexed { index, hourCard ->
+                            hourCard.nextFocusLeftId = freshHourCards.getOrNull(index - 1)?.id ?: hourCard.id
+                            hourCard.nextFocusRightId = freshHourCards.getOrNull(index + 1)?.id ?: hourCard.id
+                            hourCard.nextFocusUpId = hourCard.id
+                            hourCard.nextFocusDownId = firstDayCard?.id ?: hourCard.id
+                        }
+                        dayCards.forEachIndexed { index, dayCard ->
+                            dayCard.nextFocusLeftId = dayCards.getOrNull(index - 1)?.id ?: dayCard.id
+                            dayCard.nextFocusRightId = dayCards.getOrNull(index + 1)?.id ?: dayCard.id
+                            dayCard.nextFocusUpId = returnTarget?.id ?: dayCard.id
+                            dayCard.nextFocusDownId = dayCard.id
+                        }
                         if (focusFirstHour && indices.isNotEmpty()) hs.post {
                             val target = selectedHourCard
                             if (target != null) {
