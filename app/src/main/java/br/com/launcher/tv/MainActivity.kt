@@ -417,7 +417,7 @@ class MainActivity : Activity() {
                 isClickable = true
                 setOnClickListener {
                     screenRoot.removeView(scrim)
-                    if (title == "Notificações") openSystemNotifications() else openIntent(intent)
+                    if (title == "Notificações") openNotificationsPanel() else openIntent(intent)
                 }
                 setOnFocusChangeListener { v, focused ->
                     v.background = rounded(if (focused) Color.rgb(30, 91, 145) else Color.rgb(43, 58, 88),
