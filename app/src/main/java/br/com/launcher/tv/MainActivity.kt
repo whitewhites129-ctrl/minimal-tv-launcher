@@ -79,11 +79,11 @@ class MainActivity : Activity() {
             setPadding(dp(52), dp(28), dp(52), dp(28))
             background = GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
-                intArrayOf(Color.rgb(5, 15, 36), Color.rgb(8, 39, 83), Color.rgb(5, 18, 43))
+                intArrayOf(Color.rgb(2, 6, 14), Color.rgb(4, 13, 27), Color.rgb(2, 7, 16))
             )
             layoutParams = ViewGroup.LayoutParams(-1, -1)
         }
-        root.addView(createHeader(), LinearLayout.LayoutParams(-1, dp(116)))
+        root.addView(createHeader(), LinearLayout.LayoutParams(-1, dp(108)))
 
         val center = FrameLayout(this)
         appGrid = GridLayout(this).apply {
@@ -93,7 +93,7 @@ class MainActivity : Activity() {
         }
         center.addView(appGrid, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
         root.addView(center, LinearLayout.LayoutParams(-1, 0, 1f))
-        root.addView(createBottomNav(), LinearLayout.LayoutParams(-1, dp(62)))
+        root.addView(createBottomNav(), LinearLayout.LayoutParams(-1, dp(54)))
         screenRoot = FrameLayout(this)
         screenRoot.addView(root, FrameLayout.LayoutParams(-1, -1))
         setContentView(screenRoot)
@@ -270,8 +270,9 @@ class MainActivity : Activity() {
         val screenWidth = (resources.displayMetrics.widthPixels / resources.displayMetrics.density).toInt()
         val available = screenWidth - 104
         val tileWidth = (available / 5).coerceIn(dp(142), dp(220))
-        val tileHeight = dp(158)
-        val visible = if (showingAll) apps.toList() else apps.take(10)
+        val availableHeight = (resources.displayMetrics.heightPixels / resources.displayMetrics.density).toInt() - 108 - 54 - 56
+        val tileHeight = dp(((availableHeight - 44) / 2).coerceIn(118, 158))
+        val visible = if (showingAll) apps.toList() else apps.take(if (apps.size > 10) 9 else 10)
         if (showingAll) {
             visible.forEachIndexed { index, app ->
                 addAppCard(app, index, tileWidth, tileHeight, index / 5, index % 5)
@@ -283,7 +284,7 @@ class MainActivity : Activity() {
             visible.drop(5).take(5).forEachIndexed { index, app ->
                 addAppCard(app, index + 5, tileWidth, tileHeight, 1, index)
             }
-            if (apps.size > 10) addAllAppsCard(tileWidth, tileHeight, 2, 0)
+            if (apps.size > 10) addAllAppsCard(tileWidth, tileHeight, 1, 4)
         }
         if (appGrid.childCount > 0) {
             val actual = focus.coerceIn(0, appGrid.childCount - 1)
@@ -337,15 +338,15 @@ class MainActivity : Activity() {
         orientation = LinearLayout.VERTICAL
         gravity = Gravity.CENTER
         setPadding(dp(10), dp(12), dp(10), dp(10))
-        background = rounded(Color.rgb(7, 20, 37), 20, Color.rgb(43, 82, 119))
+        background = rounded(Color.rgb(5, 13, 25), 20, Color.rgb(24, 49, 75))
         isFocusable = true
         isFocusableInTouchMode = true
         isClickable = true
         setOnFocusChangeListener { view, focused ->
             view.background = rounded(
-                if (focused) Color.rgb(8, 37, 59) else Color.rgb(7, 20, 37),
+                if (focused) Color.rgb(7, 29, 47) else Color.rgb(5, 13, 25),
                 20,
-                if (focused) accent else Color.rgb(43, 82, 119)
+                if (focused) accent else Color.rgb(24, 49, 75)
             )
             view.elevation = if (focused) dp(9).toFloat() else 0f
         }
@@ -502,7 +503,7 @@ class MainActivity : Activity() {
                 setImageResource(icon)
                 imageTintList = android.content.res.ColorStateList.valueOf(Color.rgb(205, 218, 232))
                 contentDescription = label
-                setPadding(dp(22), dp(10), dp(22), dp(10))
+                setPadding(dp(18), dp(8), dp(18), dp(8))
                 isFocusable = true
                 setOnClickListener { action() }
                 setOnFocusChangeListener { v, focused ->
