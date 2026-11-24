@@ -260,13 +260,22 @@ class MainActivity : Activity() {
 
     private fun addAppCard(app: ResolveInfo, index: Int, width: Int, height: Int, row: Int, col: Int) {
         val card = createCard()
-        val icon = ImageView(this).apply {
-            setImageDrawable(app.loadIcon(packageManager))
-            scaleType = ImageView.ScaleType.FIT_CENTER
+        val banner = try { app.loadBanner(packageManager) } catch (_: Exception) { null }
+        val artwork = banner ?: app.loadIcon(packageManager)
+        val image = ImageView(this).apply {
+            setImageDrawable(artwork)
+            scaleType = if (banner != null) ImageView.ScaleType.CENTER_CROP else ImageView.ScaleType.FIT_CENTER
+            contentDescription = app.loadLabel(packageManager).toString()
         }
-        card.addView(icon, LinearLayout.LayoutParams(dp(66), dp(66)))
-        card.background = appCardBackground(app.loadIcon(packageManager))
-        card.setPadding(dp(8), dp(8), dp(8), dp(8))
+        card.background = if (banner == null) appCardBackground(artwork)
+            else rounded(Color.rgb(18, 22, 32), 17, Color.rgb(35, 43, 56))
+        card.clipToOutline = true
+        card.setPadding(if (banner != null) 0 else dp(8), if (banner != null) 0 else dp(8),
+            if (banner != null) 0 else dp(8), if (banner != null) 0 else dp(8))
+        card.addView(image, LinearLayout.LayoutParams(
+            if (banner != null) -1 else dp(66),
+            if (banner != null) -1 else dp(66)
+        ))
         card.contentDescription = app.loadLabel(packageManager).toString()
         card.setOnClickListener { launch(app) }
         card.setOnLongClickListener {
