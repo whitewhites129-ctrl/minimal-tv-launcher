@@ -590,10 +590,14 @@ class MainActivity : Activity() {
                                 id = View.generateViewId()
                                 orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
                                 setPadding(dp(9), dp(7), dp(9), dp(7))
-                                background = rounded(Color.rgb(7, 11, 18), 14, if (currentHour) accent else Color.rgb(29, 41, 56))
+                                background = rounded(Color.rgb(7, 11, 18), 14, if (currentHour) Color.rgb(16, 94, 126) else Color.rgb(29, 41, 56))
                                 isFocusable = true; isClickable = true
                                 setOnFocusChangeListener { v, focused ->
-                                    v.background = rounded(Color.rgb(7, 11, 18), 14, if (focused || currentHour) accent else Color.rgb(48,60,78))
+                                    v.background = rounded(
+                                        if (focused) Color.rgb(13, 38, 61) else Color.rgb(7, 11, 18),
+                                        14,
+                                        if (focused) accent else if (currentHour) Color.rgb(16, 94, 126) else Color.rgb(29, 41, 56)
+                                    )
                                 }
                             }
                             val hourRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
