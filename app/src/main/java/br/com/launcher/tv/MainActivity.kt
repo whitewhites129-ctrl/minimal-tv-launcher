@@ -127,7 +127,34 @@ class MainActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-        actions.addView(headerAction("☀", "Clima") { refreshWeather() })
+        val weatherPill = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(dp(12), dp(8), dp(12), dp(8))
+            background = rounded(Color.rgb(18, 24, 38), 18, Color.rgb(42, 55, 75))
+            isFocusable = true
+            isClickable = true
+            setOnClickListener { refreshWeather() }
+            setOnFocusChangeListener { v, focused ->
+                v.background = rounded(if (focused) Color.rgb(18, 67, 105) else Color.rgb(18, 24, 38),
+                    18, if (focused) accent else Color.rgb(42, 55, 75))
+            }
+        }
+        weatherIcon = TextView(this).apply {
+            text = "☀"
+            textSize = 22f
+            setTextColor(Color.WHITE)
+        }
+        weatherText = TextView(this).apply {
+            text = "Clima"
+            textSize = 13f
+            setTextColor(Color.rgb(220, 232, 246))
+            setPadding(dp(7), 0, 0, 0)
+            maxLines = 1
+        }
+        weatherPill.addView(weatherIcon)
+        weatherPill.addView(weatherText)
+        actions.addView(weatherPill)
         actions.addView(headerAction("♧", "Notificações") {
             try { startActivity(Intent("android.settings.NOTIFICATION_SETTINGS")) }
             catch (_: Exception) { openIntent(Intent(Settings.ACTION_SETTINGS)) }
