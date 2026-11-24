@@ -16,16 +16,13 @@
         android:label="Minimal TV Launcher"
         android:theme="@style/AppTheme">
         <service
-            android:name=".NotificationShadeService"
-            android:label="Painel de notificações"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:name=".LauncherNotificationListener"
+            android:label="Notificações do Minimal TV Launcher"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
             android:exported="true">
             <intent-filter>
-                <action android:name="android.accessibilityservice.AccessibilityService" />
+                <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
-            <meta-data
-                android:name="android.accessibilityservice"
-                android:resource="@xml/notification_shade_accessibility" />
         </service>
         <activity
             android:name=".MainActivity"
