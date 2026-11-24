@@ -912,6 +912,14 @@ class MainActivity : Activity() {
         apps.add(target, item)
         moving = target
         renderApps(target)
+        val card = appGrid.getChildAt(target)
+        sortPulse?.cancel()
+        sortPulse = card?.let { ObjectAnimator.ofFloat(it, "alpha", 1f, 0.62f).apply {
+            duration = 420
+            repeatMode = ObjectAnimator.REVERSE
+            repeatCount = ObjectAnimator.INFINITE
+            start()
+        } }
     }
 
     override fun onUserInteraction() {
@@ -937,7 +945,7 @@ class MainActivity : Activity() {
                 if (screenRoot.findViewWithTag<View>("quick_panel") != null) { screenRoot.removeView(screenRoot.findViewWithTag("quick_panel")); return true }
                 if (organizing) { stopOrganizingUi(); organizing = false; moving = -1; restoreOrder(); renderApps(); return true }
             }
-            if (organizing && event.action == KeyEvent.ACTION_UP && (event.keyCode == KeyEvent.KEYCODE_DPAD_CENTER || event.keyCode == KeyEvent.KEYCODE_ENTER)) { saveOrder(); return true }
+            if (organizing && event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0 && (event.keyCode == KeyEvent.KEYCODE_DPAD_CENTER || event.keyCode == KeyEvent.KEYCODE_ENTER)) { saveOrder(); return true }
             if (organizing && event.keyCode == KeyEvent.KEYCODE_MENU) { saveOrder(); return true }
         }
         return super.dispatchKeyEvent(event)
