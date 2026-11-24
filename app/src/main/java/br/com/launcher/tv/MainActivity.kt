@@ -149,12 +149,12 @@ class MainActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
             setPadding(dp(12), dp(8), dp(12), dp(8))
-            background = rounded(Color.rgb(18, 24, 38), 18, Color.rgb(42, 55, 75))
+            background = rounded(Color.rgb(12, 17, 27), 18, Color.rgb(42, 55, 75))
             isFocusable = true
             isClickable = true
             setOnClickListener { openWeatherScreen() }
             setOnFocusChangeListener { v, focused ->
-                v.background = rounded(if (focused) Color.rgb(18, 67, 105) else Color.rgb(18, 24, 38),
+                v.background = rounded(if (focused) Color.rgb(13, 38, 61) else Color.rgb(18, 24, 38),
                     18, if (focused) accent else Color.rgb(42, 55, 75))
             }
         }
@@ -351,7 +351,7 @@ class MainActivity : Activity() {
                     closeNotificationsPanel()
                 }
                 setOnFocusChangeListener { v, focused ->
-                    v.background = rounded(if (focused) Color.rgb(25, 65, 95) else Color.rgb(18, 18, 18),
+                    v.background = rounded(if (focused) Color.rgb(13, 38, 61) else Color.rgb(18, 18, 18),
                         17, if (focused) accent else Color.rgb(55, 55, 55))
                 }
             }
@@ -427,7 +427,7 @@ class MainActivity : Activity() {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding(dp(17), dp(13), dp(17), dp(13))
-                background = rounded(Color.rgb(43, 58, 88), 17, Color.rgb(62, 82, 119))
+                background = rounded(Color.rgb(20, 30, 44), 17, Color.rgb(62, 82, 119))
                 isFocusable = true
                 isClickable = true
                 setOnClickListener {
@@ -435,7 +435,7 @@ class MainActivity : Activity() {
                     if (title == "Notificações") openNotificationsPanel() else openIntent(intent)
                 }
                 setOnFocusChangeListener { v, focused ->
-                    v.background = rounded(if (focused) Color.rgb(30, 91, 145) else Color.rgb(43, 58, 88),
+                    v.background = rounded(if (focused) Color.rgb(13, 38, 61) else Color.rgb(43, 58, 88),
                         17, if (focused) accent else Color.rgb(62, 82, 119))
                 }
             }
@@ -465,7 +465,7 @@ class MainActivity : Activity() {
             isFocusable = true
             isClickable = true
             setOnClickListener { screenRoot.removeView(scrim) }
-            background = rounded(Color.rgb(35, 50, 77), 16, Color.TRANSPARENT)
+            background = rounded(Color.rgb(13, 38, 61), 16, Color.TRANSPARENT)
         }
         panel.addView(close, LinearLayout.LayoutParams(-1, dp(48)))
         scrim.addView(panel, FrameLayout.LayoutParams(dp(390), -1, Gravity.RIGHT))
@@ -526,9 +526,8 @@ class MainActivity : Activity() {
         val page = LinearLayout(this).apply { tag = "weather_screen"; orientation = LinearLayout.VERTICAL; setPadding(dp(42), dp(28), dp(42), dp(24)); setBackgroundColor(Color.rgb(5, 8, 14)); isFocusable = true }
         weatherPage = page
         val top = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        top.addView(TextView(this).apply { text = "Previsão do tempo"; textSize = 27f; setTextColor(Color.WHITE) }, LinearLayout.LayoutParams(0, -2, 1f))
-        val close = TextView(this).apply { text = "✕  Fechar"; textSize = 16f; setTextColor(Color.WHITE); gravity = Gravity.CENTER; setPadding(dp(16), dp(10), dp(16), dp(10)); isFocusable = true; isClickable = true; background = rounded(Color.rgb(28, 28, 28), 14, Color.rgb(75, 75, 75)); setOnClickListener { screenRoot.removeView(page); weatherPage = null } }
-        top.addView(close); page.addView(top)
+        top.addView(TextView(this).apply { text = "Previsão do tempo"; textSize = 27f; setTextColor(Color.WHITE) })
+        page.addView(top)
         page.addView(TextView(this).apply { text = "Batistini • São Bernardo do Campo, SP"; textSize = 15f; setTextColor(Color.LTGRAY); setPadding(0, dp(5), 0, dp(12)) })
         page.addView(TextView(this).apply { text = weatherIcon.text.toString() + "   " + weatherText.text.toString(); textSize = 23f; setTextColor(Color.WHITE); setPadding(dp(18), dp(12), dp(18), dp(12)); background = rounded(Color.rgb(16, 24, 38), 18, Color.rgb(45, 65, 90)) }, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(16) })
         val hoursTitle = TextView(this).apply { text = "Previsão por hora — hoje"; textSize = 19f; setTextColor(Color.WHITE); setPadding(0, 0, 0, dp(8)) }
@@ -536,7 +535,10 @@ class MainActivity : Activity() {
         val hs = android.widget.HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false }; val hr = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }; hs.addView(hr)
         page.addView(hs, LinearLayout.LayoutParams(-1, dp(126)).apply { bottomMargin = dp(18) })
         page.addView(TextView(this).apply { text = "Próximos dias"; textSize = 19f; setTextColor(Color.WHITE); setPadding(0, 0, 0, dp(8)) })
-        val ds = android.widget.ScrollView(this); val dl = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }; ds.addView(dl); page.addView(ds, LinearLayout.LayoutParams(-1, 0, 1f))
+        val ds = android.widget.ScrollView(this)
+        val dl = android.widget.GridLayout(this).apply { columnCount = 4; useDefaultMargins = false }
+        ds.addView(dl)
+        page.addView(ds, LinearLayout.LayoutParams(-1, 0, 1f))
         screenRoot.addView(page, FrameLayout.LayoutParams(-1, -1)); close.requestFocus()
         Thread {
             try {
@@ -599,24 +601,38 @@ class MainActivity : Activity() {
                     val todayKey = java.text.SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
                     renderHoursForDate(todayKey)
                     dl.removeAllViews(); val dates = d.getJSONArray("time"); val mx = d.getJSONArray("temperature_2m_max"); val mn = d.getJSONArray("temperature_2m_min"); val ch = d.getJSONArray("precipitation_probability_max"); val codes = d.getJSONArray("weather_code")
-                    val df = java.text.SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()); val out = java.text.SimpleDateFormat("EEE, dd/MM", Locale("pt", "BR"))
+                    val df = java.text.SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                    val todayKey = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+                    val out = java.text.SimpleDateFormat("EEE, dd/MM", Locale("pt", "BR"))
                     for (i in 0 until dates.length()) {
-                        val day = try { out.format(df.parse(dates.getString(i))!!) } catch (_: Exception) { dates.getString(i) }
-                        val row = LinearLayout(this).apply {
-                            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-                            setPadding(dp(14), dp(10), dp(14), dp(10))
-                            background = rounded(Color.rgb(17, 23, 34), 14, Color.rgb(48, 60, 78))
-                            isFocusable = true; isClickable = true
-                            setOnFocusChangeListener { v, focused -> v.background = rounded(if (focused) Color.rgb(22, 43, 65) else Color.rgb(17,23,34), 14, if (focused) accent else Color.rgb(48,60,78)) }
-                            setOnClickListener { renderHoursForDate(dates.getString(i)) }
+                        val dateKey = dates.getString(i)
+                        val day = if (dateKey == todayKey) "Hoje" else try { out.format(df.parse(dateKey)!!) } catch (_: Exception) { dateKey }
+                        val card = LinearLayout(this).apply {
+                            orientation = LinearLayout.VERTICAL
+                            gravity = Gravity.CENTER
+                            setPadding(dp(8), dp(9), dp(8), dp(9))
+                            background = rounded(Color.rgb(12, 17, 27), 13, Color.rgb(43, 57, 76))
+                            isFocusable = true
+                            isClickable = true
+                            setOnFocusChangeListener { v, focused ->
+                                v.background = rounded(if (focused) Color.rgb(13, 38, 61) else Color.rgb(12,17,27), 13, if (focused) accent else Color.rgb(43,57,76))
+                            }
+                            setOnClickListener { renderHoursForDate(dateKey) }
                         }
-                        row.addView(TextView(this).apply { text = day; textSize = 15f; setTextColor(Color.WHITE) }, LinearLayout.LayoutParams(dp(120), -2))
-                        row.addView(TextView(this).apply { text = weatherSymbol(codes.getInt(i)); textSize = 22f; setTextColor(Color.WHITE) }, LinearLayout.LayoutParams(dp(48), -2))
-                        row.addView(TextView(this).apply { text = mx.getDouble(i).toInt().toString() + "° / " + mn.getDouble(i).toInt() + "°"; textSize = 16f; setTextColor(Color.WHITE); gravity = Gravity.CENTER }, LinearLayout.LayoutParams(0, -2, 1f))
-                        row.addView(TextView(this).apply { text = ch.optInt(i).toString() + "%"; textSize = 14f; setTextColor(Color.rgb(155, 195, 235)) })
-                        dl.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(7) })
-                    }
-                }
+                        card.addView(TextView(this).apply { text = day; textSize = 13f; setTextColor(Color.WHITE); gravity = Gravity.CENTER })
+                        card.addView(TextView(this).apply { text = weatherSymbol(codes.getInt(i)); textSize = 25f; setTextColor(Color.WHITE); gravity = Gravity.CENTER; setPadding(0, dp(3), 0, dp(3)) })
+                        card.addView(TextView(this).apply { text = mx.getDouble(i).toInt().toString() + "° / " + mn.getDouble(i).toInt() + "°"; textSize = 13f; setTextColor(Color.WHITE); gravity = Gravity.CENTER })
+                        card.addView(TextView(this).apply { text = ch.optInt(i).toString() + "% chuva"; textSize = 11f; setTextColor(Color.rgb(155,195,235)); gravity = Gravity.CENTER })
+                        val params = android.widget.GridLayout.LayoutParams(
+                            android.widget.GridLayout.spec(android.widget.GridLayout.UNDEFINED, 1f),
+                            android.widget.GridLayout.spec(android.widget.GridLayout.UNDEFINED, 1f)
+                        ).apply {
+                            width = 0
+                            height = dp(104)
+                            setMargins(dp(4), dp(4), dp(4), dp(4))
+                        }
+                        dl.addView(card, params)
+                    }                }
             } catch (_: Exception) { runOnUiThread { hr.removeAllViews(); hr.addView(TextView(this).apply { text = "Não foi possível carregar a previsão. Verifique a internet."; setTextColor(Color.LTGRAY); textSize = 15f }) } }
         }.start()
     }
