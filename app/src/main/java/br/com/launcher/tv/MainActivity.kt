@@ -186,14 +186,15 @@ class MainActivity : Activity() {
             contentDescription = description
             isFocusable = true
             isClickable = true
-            setPadding(dp(14), dp(14), dp(14), dp(14))
-            background = rounded(Color.TRANSPARENT, 18, Color.TRANSPARENT)
+            setPadding(dp(12), dp(12), dp(12), dp(12))
+            background = rounded(Color.TRANSPARENT, 16, Color.TRANSPARENT)
+            layoutParams = LinearLayout.LayoutParams(dp(62), dp(68))
+            clipToOutline = false
             setOnClickListener { action() }
             setOnFocusChangeListener { v, focused ->
                 v.background = rounded(if (focused) Color.rgb(18, 67, 105) else Color.TRANSPARENT,
-                    18, if (focused) accent else Color.TRANSPARENT)
-                v.scaleX = if (focused) 1.08f else 1f
-                v.scaleY = if (focused) 1.08f else 1f
+                    16, if (focused) accent else Color.TRANSPARENT)
+                v.scaleX = 1f; v.scaleY = 1f
             }
         }
     }
@@ -508,68 +509,118 @@ class MainActivity : Activity() {
     private fun openWeatherScreen() {
         if (screenRoot.findViewWithTag<View>("weather_screen") != null) return
         val page = LinearLayout(this).apply {
-            tag = "weather_screen"
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            setPadding(dp(40), dp(30), dp(40), dp(30))
-            setBackgroundColor(Color.BLACK)
-            isFocusable = true
+            tag = "weather_screen"; orientation = LinearLayout.VERTICAL
+            setPadding(dp(42), dp(24), dp(42), dp(22)); setBackgroundColor(Color.BLACK); isFocusable = true
         }
         page.addView(TextView(this).apply {
-            text = "CLIMA AGORA"
-            textSize = 18f
-            letterSpacing = 0.16f
-            setTextColor(Color.rgb(165, 185, 210))
-            gravity = Gravity.CENTER
+            text = "Previsão do tempo"; textSize = 27f; setTextColor(Color.WHITE)
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
         })
         page.addView(TextView(this).apply {
-            text = weatherIcon.text
-            textSize = 76f
-            gravity = Gravity.CENTER
-            setTextColor(Color.WHITE)
-            setPadding(0, dp(12), 0, dp(8))
+            text = "São Bernardo do Campo • SP"; textSize = 14f; setTextColor(Color.LTGRAY)
+            setPadding(0, dp(4), 0, dp(14))
         })
-        page.addView(TextView(this).apply {
-            text = weatherText.text
-            textSize = 27f
-            gravity = Gravity.CENTER
-            setTextColor(Color.WHITE)
-            maxLines = 2
-        })
-        page.addView(TextView(this).apply {
-            text = "São Bernardo do Campo • SP"
-            textSize = 16f
-            gravity = Gravity.CENTER
-            setTextColor(Color.LTGRAY)
-            setPadding(0, dp(12), 0, dp(26))
-        })
-        val buttons = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
-        val refresh = TextView(this).apply {
-            text = "Atualizar"
-            textSize = 16f
-            setTextColor(Color.WHITE)
-            gravity = Gravity.CENTER
-            setPadding(dp(24), dp(14), dp(24), dp(14))
-            isFocusable = true
-            isClickable = true
-            background = rounded(Color.rgb(25, 25, 25), 14, Color.rgb(75, 75, 75))
-            setOnClickListener { refreshWeather() }
+        val current = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            background = rounded(Color.rgb(17, 22, 31), 20, Color.rgb(45, 55, 70))
+            setPadding(dp(22), dp(12), dp(22), dp(12))
         }
+        current.addView(TextView(this).apply { text = weatherIcon.text; textSize = 54f; setTextColor(Color.WHITE) })
+        current.addView(TextView(this).apply {
+            text = weatherText.text; textSize = 22f; setTextColor(Color.WHITE); setPadding(dp(18), 0, 0, 0)
+        }, LinearLayout.LayoutParams(0, -2, 1f))
+        page.addView(current, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(18) })
+        page.addView(TextView(this).apply {
+            text = "Próximas horas"; textSize = 19f; setTextColor(Color.WHITE)
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        })
+        val hourlyScroll = android.widget.HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false; overScrollMode = View.OVER_SCROLL_NEVER
+        }
+        val hourlyRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(10), 0, dp(18)) }
+        hourlyScroll.addView(hourlyRow); page.addView(hourlyScroll, LinearLayout.LayoutParams(-1, dp(145)))
+        page.addView(TextView(this).apply {
+            text = "Próximos 7 dias"; textSize = 19f; setTextColor(Color.WHITE)
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL); setPadding(0, dp(4), 0, dp(8))
+        })
+        val dailyScroll = android.widget.ScrollView(this).apply { isVerticalScrollBarEnabled = false }
+        val dailyColumn = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        dailyScroll.addView(dailyColumn); page.addView(dailyScroll, LinearLayout.LayoutParams(-1, 0, 1f))
         val close = TextView(this).apply {
-            text = "Voltar"
-            textSize = 16f
-            setTextColor(Color.WHITE)
-            gravity = Gravity.CENTER
-            setPadding(dp(24), dp(14), dp(24), dp(14))
-            isFocusable = true
-            isClickable = true
+            text = "Voltar"; textSize = 15f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
+            setPadding(dp(22), dp(10), dp(22), dp(10)); isFocusable = true; isClickable = true
             background = rounded(Color.rgb(25, 25, 25), 14, Color.rgb(75, 75, 75))
             setOnClickListener { screenRoot.removeView(page) }
         }
-        buttons.addView(refresh); buttons.addView(close, LinearLayout.LayoutParams(-2, -2).apply { leftMargin = dp(14) })
-        page.addView(buttons)
+        page.addView(close, LinearLayout.LayoutParams(-2, -2).apply { topMargin = dp(10) })
         screenRoot.addView(page, FrameLayout.LayoutParams(-1, -1))
-        refresh.requestFocus()
+        close.requestFocus()
+        loadWeatherForecast(hourlyRow, dailyColumn)
+    }
+
+    private fun weatherDescription(code: Int): String = when (code) {
+        0 -> "Céu limpo"; 1 -> "Poucas nuvens"; 2 -> "Parcialmente nublado"; 3 -> "Nublado"
+        45, 48 -> "Neblina"; 51, 53, 55, 56, 57 -> "Garoa"
+        61, 63, 65, 66, 67 -> "Chuva"; 80, 81, 82 -> "Pancadas"; 95, 96, 99 -> "Trovoadas"
+        else -> "Tempo variável"
+    }
+
+    private fun weatherSymbol(code: Int): String = when {
+        code >= 95 -> "⛈"; code in 51..67 || code in 80..82 -> "🌧"
+        code == 45 || code == 48 -> "🌫"; code == 0 -> "☀"; code in 2..3 -> "☁"; else -> "🌤"
+    }
+
+    private fun loadWeatherForecast(hourlyRow: LinearLayout, dailyColumn: LinearLayout) {
+        Thread {
+            try {
+                val address = URL("https://api.open-meteo.com/v1/forecast?latitude=-23.6914&longitude=-46.5650&hourly=temperature_2m,precipitation_probability,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=America%2FSao_Paulo&forecast_days=7")
+                val connection = (address.openConnection() as HttpURLConnection).apply {
+                    connectTimeout = 12000; readTimeout = 12000; requestMethod = "GET"
+                    setRequestProperty("Accept", "application/json")
+                }
+                val json = JSONObject(connection.inputStream.bufferedReader().use { it.readText() }); connection.disconnect()
+                val hourly = json.getJSONObject("hourly")
+                val times = hourly.getJSONArray("time"); val temps = hourly.getJSONArray("temperature_2m")
+                val rain = hourly.getJSONArray("precipitation_probability"); val codes = hourly.getJSONArray("weather_code")
+                val daily = json.getJSONObject("daily")
+                val dates = daily.getJSONArray("time"); val max = daily.getJSONArray("temperature_2m_max")
+                val min = daily.getJSONArray("temperature_2m_min"); val dCodes = daily.getJSONArray("weather_code")
+                val dRain = daily.getJSONArray("precipitation_probability_max")
+                runOnUiThread {
+                    hourlyRow.removeAllViews()
+                    val currentHour = SimpleDateFormat("HH", Locale.US).format(Date()).toInt()
+                    val nowIndex = (0 until times.length()).firstOrNull { times.getString(it).substringAfter("T").take(2).toInt() >= currentHour } ?: 0
+                    for (i in nowIndex until minOf(times.length(), nowIndex + 18)) {
+                        val item = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; setPadding(dp(13), dp(8), dp(13), dp(8)) }
+                        item.addView(TextView(this).apply { text = times.getString(i).substringAfter("T").take(5); textSize = 13f; setTextColor(Color.LTGRAY) })
+                        item.addView(TextView(this).apply { text = weatherSymbol(codes.getInt(i)); textSize = 27f; setTextColor(Color.WHITE); setPadding(0, dp(5), 0, dp(5)) })
+                        item.addView(TextView(this).apply { text = "${temps.getDouble(i).toInt()}°"; textSize = 17f; setTextColor(Color.WHITE) })
+                        item.addView(TextView(this).apply { text = "${rain.getInt(i)}%"; textSize = 12f; setTextColor(Color.rgb(125, 190, 245)) })
+                        hourlyRow.addView(item, LinearLayout.LayoutParams(dp(82), -2))
+                    }
+                    dailyColumn.removeAllViews()
+                    for (i in 0 until dates.length()) {
+                        val dateValue = SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(dates.getString(i)) ?: Date()
+                        val dayName = when (i) { 0 -> "Hoje"; 1 -> "Amanhã"; else -> SimpleDateFormat("EEE", Locale("pt", "BR")).format(dateValue).replaceFirstChar { it.uppercase() } }
+                        val row = LinearLayout(this).apply {
+                            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+                            setPadding(dp(12), dp(10), dp(12), dp(10))
+                            background = rounded(Color.rgb(17, 22, 31), 13, Color.rgb(38, 45, 58))
+                        }
+                        row.addView(TextView(this).apply { text = dayName; textSize = 15f; setTextColor(Color.WHITE) }, LinearLayout.LayoutParams(dp(105), -2))
+                        row.addView(TextView(this).apply { text = weatherSymbol(dCodes.getInt(i)); textSize = 24f; setTextColor(Color.WHITE); gravity = Gravity.CENTER }, LinearLayout.LayoutParams(dp(48), -2))
+                        row.addView(TextView(this).apply { text = "${dRain.getInt(i)}%"; textSize = 13f; setTextColor(Color.rgb(125, 190, 245)); gravity = Gravity.CENTER }, LinearLayout.LayoutParams(0, -2, 1f))
+                        row.addView(TextView(this).apply { text = "${max.getDouble(i).toInt()}°   ${min.getDouble(i).toInt()}°"; textSize = 15f; setTextColor(Color.WHITE); gravity = Gravity.RIGHT }, LinearLayout.LayoutParams(dp(130), -2))
+                        dailyColumn.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(6) })
+                    }
+                }
+            } catch (_: Exception) {
+                runOnUiThread { dailyColumn.addView(TextView(this).apply {
+                    text = "Não foi possível carregar a previsão. Verifique a conexão e tente novamente."
+                    setTextColor(Color.LTGRAY); textSize = 15f
+                }) }
+            }
+        }.start()
     }
 
     private fun openIntent(intent: Intent) {
@@ -866,9 +917,15 @@ class MainActivity : Activity() {
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        if (saverView != null && event.action == KeyEvent.ACTION_DOWN) {
-            dismissScreenSaver()
-            return true
+        if (event.action == KeyEvent.ACTION_DOWN) {
+            if (saverView != null) { dismissScreenSaver(); return true }
+            if (event.keyCode == KeyEvent.KEYCODE_BACK) {
+                if (screenRoot.findViewWithTag<View>("notification_panel_root") != null) { closeNotificationsPanel(); return true }
+                if (screenRoot.findViewWithTag<View>("weather_screen") != null) { screenRoot.removeView(screenRoot.findViewWithTag("weather_screen")); return true }
+                if (screenRoot.findViewWithTag<View>("quick_panel") != null) { screenRoot.removeView(screenRoot.findViewWithTag("quick_panel")); return true }
+                if (organizing) { organizing = false; moving = -1; restoreOrder(); renderApps(); return true }
+            }
+            if (organizing && (event.keyCode == KeyEvent.KEYCODE_DPAD_CENTER || event.keyCode == KeyEvent.KEYCODE_ENTER)) { saveOrder(); return true }
         }
         return super.dispatchKeyEvent(event)
     }
