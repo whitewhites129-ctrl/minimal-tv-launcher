@@ -225,7 +225,7 @@ class MainActivity : Activity() {
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.TOP
-            setPadding(dp(24), dp(25), dp(24), dp(22))
+            setPadding(dp(18), dp(20), dp(18), dp(16))
             background = rounded(Color.BLACK, 0, Color.TRANSPARENT)
             isFocusable = true
             isClickable = true
@@ -237,7 +237,7 @@ class MainActivity : Activity() {
         }
         val title = TextView(this).apply {
             text = "Notificações"
-            textSize = 25f
+            textSize = 22f
             setTextColor(Color.WHITE)
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
         }
@@ -285,13 +285,13 @@ class MainActivity : Activity() {
         val clear = TextView(this).apply {
             id = View.generateViewId()
             text = "Limpar tudo"
-            textSize = 13f
+            textSize = 11f
             setTextColor(Color.rgb(180, 218, 255))
             gravity = Gravity.CENTER
             isFocusable = true
             isClickable = true
-            setPadding(dp(14), dp(10), dp(14), dp(10))
-            minWidth = dp(104); minHeight = dp(54)
+            setPadding(dp(9), dp(6), dp(9), dp(6))
+            minWidth = dp(82); minHeight = dp(40)
             background = rounded(Color.rgb(25, 25, 25), 12, Color.rgb(70, 70, 70))
             setOnFocusChangeListener { v, focused -> v.background = rounded(if (focused) Color.rgb(18, 67, 105) else Color.rgb(25,25,25), 12, if (focused) accent else Color.rgb(70,70,70)) }
             setOnClickListener { LauncherNotificationListener.instance?.clearAll(); refreshNotificationPanel(); closeNotificationsPanel() }
@@ -299,22 +299,22 @@ class MainActivity : Activity() {
         val close = TextView(this).apply {
             id = View.generateViewId()
             text = "Fechar"
-            textSize = 14f
+            textSize = 11f
             setTextColor(Color.WHITE)
             gravity = Gravity.CENTER
             isFocusable = true
             isClickable = true
-            setPadding(dp(14), dp(10), dp(14), dp(10))
-            minWidth = dp(88); minHeight = dp(54)
+            setPadding(dp(9), dp(6), dp(9), dp(6))
+            minWidth = dp(66); minHeight = dp(40)
             background = rounded(Color.rgb(28, 38, 54), 12, Color.rgb(70, 80, 95))
             setOnFocusChangeListener { v, focused -> v.background = rounded(if (focused) Color.rgb(18, 67, 105) else Color.rgb(28,38,54), 12, if (focused) accent else Color.rgb(70,80,95)) }
             setOnClickListener { closeNotificationsPanel() }
         }
-        bottom.addView(manage, LinearLayout.LayoutParams(0, dp(58), 1f))
-        bottom.addView(clear, LinearLayout.LayoutParams(-2, dp(58)).apply { rightMargin = dp(8) })
-        bottom.addView(close, LinearLayout.LayoutParams(-2, dp(58)))
+        bottom.addView(manage, LinearLayout.LayoutParams(0, dp(42), 1f))
+        bottom.addView(clear, LinearLayout.LayoutParams(-2, dp(42)).apply { rightMargin = dp(6) })
+        bottom.addView(close, LinearLayout.LayoutParams(-2, dp(42)))
         panel.addView(bottom)
-        scrim.addView(panel, FrameLayout.LayoutParams(dp(470), -1, Gravity.RIGHT))
+        scrim.addView(panel, FrameLayout.LayoutParams(dp(390), -1, Gravity.RIGHT))
         screenRoot.addView(scrim, FrameLayout.LayoutParams(-1, -1))
         refreshNotificationPanel()
         panel.post { (notificationPanel?.getChildAt(0) ?: manage).requestFocus() }
@@ -367,14 +367,14 @@ class MainActivity : Activity() {
             })
             if (notice.title.isNotBlank()) textColumn.addView(TextView(this).apply {
                 text = notice.title
-                textSize = 15f
+                textSize = 13f
                 setTextColor(Color.WHITE)
                 typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
                 maxLines = 2
             })
             if (notice.message.isNotBlank()) textColumn.addView(TextView(this).apply {
                 text = notice.message
-                textSize = 13f
+                textSize = 11f
                 setTextColor(Color.rgb(205, 216, 233))
                 maxLines = 3
             })
@@ -518,7 +518,8 @@ class MainActivity : Activity() {
     }
 
     private fun openWeatherScreen() {
-        if (weatherPage != null) return
+        if (weatherPage?.parent != null) return
+        weatherPage = null
         val page = LinearLayout(this).apply { tag = "weather_screen"; orientation = LinearLayout.VERTICAL; setPadding(dp(42), dp(28), dp(42), dp(24)); setBackgroundColor(Color.rgb(5, 8, 14)); isFocusable = true }
         weatherPage = page
         val top = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
@@ -527,7 +528,8 @@ class MainActivity : Activity() {
         top.addView(close); page.addView(top)
         page.addView(TextView(this).apply { text = "Batistini • São Bernardo do Campo, SP"; textSize = 15f; setTextColor(Color.LTGRAY); setPadding(0, dp(5), 0, dp(12)) })
         page.addView(TextView(this).apply { text = weatherIcon.text.toString() + "   " + weatherText.text.toString(); textSize = 23f; setTextColor(Color.WHITE); setPadding(dp(18), dp(12), dp(18), dp(12)); background = rounded(Color.rgb(16, 24, 38), 18, Color.rgb(45, 65, 90)) }, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(16) })
-        page.addView(TextView(this).apply { text = "Próximas horas"; textSize = 19f; setTextColor(Color.WHITE); setPadding(0, 0, 0, dp(8)) })
+        val hoursTitle = TextView(this).apply { text = "Previsão por hora — hoje"; textSize = 19f; setTextColor(Color.WHITE); setPadding(0, 0, 0, dp(8)) }
+        page.addView(hoursTitle)
         val hs = android.widget.HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false }; val hr = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }; hs.addView(hr)
         page.addView(hs, LinearLayout.LayoutParams(-1, dp(126)).apply { bottomMargin = dp(18) })
         page.addView(TextView(this).apply { text = "Próximos dias"; textSize = 19f; setTextColor(Color.WHITE); setPadding(0, 0, 0, dp(8)) })
@@ -544,6 +546,8 @@ class MainActivity : Activity() {
                     val parser = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm", Locale.getDefault()); val fmt = java.text.SimpleDateFormat("HH:mm", Locale.getDefault())
                     val first = (0 until ts.length()).firstOrNull { i -> try { !parser.parse(ts.getString(i)).before(Date()) } catch (_: Exception) { false } } ?: 0
                     fun renderHoursForDate(dateKey: String) {
+                        val selectedDate = try { SimpleDateFormat("EEEE, dd/MM", Locale("pt", "BR")).format(SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(dateKey)!!) } catch (_: Exception) { dateKey }
+                        hoursTitle.text = "Previsão por hora — $selectedDate"
                         hr.removeAllViews()
                         val indices = (0 until ts.length()).filter { ts.getString(it).startsWith(dateKey) }
                         indices.forEach { i ->
@@ -609,7 +613,7 @@ class MainActivity : Activity() {
             var label = "Clima indisponível — toque para tentar novamente"
             var symbol = "☁"
             try {
-                val address = URL("https://api.open-meteo.com/v1/forecast?latitude=-23.6914&longitude=-46.5650&current=temperature_2m,relative_humidity_2m,weather_code,is_day&timezone=America%2FSao_Paulo")
+                val address = URL("https://api.open-meteo.com/v1/forecast?latitude=-23.7717&longitude=-46.59097&current=temperature_2m,relative_humidity_2m,weather_code,is_day&timezone=America%2FSao_Paulo")
                 val connection = (address.openConnection() as HttpURLConnection).apply {
                     connectTimeout = 12000
                     readTimeout = 12000
@@ -900,7 +904,7 @@ class MainActivity : Activity() {
             }
             if (event.keyCode == KeyEvent.KEYCODE_BACK) {
                 if (screenRoot.findViewWithTag<View>("notification_panel_root") != null) { closeNotificationsPanel(); return true }
-                if (screenRoot.findViewWithTag<View>("weather_screen") != null) { screenRoot.removeView(screenRoot.findViewWithTag("weather_screen")); return true }
+                if (screenRoot.findViewWithTag<View>("weather_screen") != null) { screenRoot.removeView(screenRoot.findViewWithTag("weather_screen")); weatherPage = null; return true }
                 if (screenRoot.findViewWithTag<View>("quick_panel") != null) { screenRoot.removeView(screenRoot.findViewWithTag("quick_panel")); return true }
                 if (organizing) { organizing = false; moving = -1; restoreOrder(); renderApps(); return true }
             }
