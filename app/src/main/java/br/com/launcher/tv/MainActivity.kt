@@ -39,6 +39,8 @@ class MainActivity : Activity() {
     private lateinit var weatherText: TextView
     private lateinit var appGrid: GridLayout
     private lateinit var screenRoot: FrameLayout
+    private var notificationPanel: LinearLayout? = null
+    private var notificationCount: TextView? = null
     private val idleHandler = Handler(Looper.getMainLooper())
     private var saverView: View? = null
     private var saverClock: TextView? = null
@@ -55,6 +57,9 @@ class MainActivity : Activity() {
         apps.addAll(findApps())
         restoreOrder()
         createHome()
+        LauncherNotificationListener.onChanged = {
+            runOnUiThread { refreshNotificationPanel() }
+        }
         refreshClock()
         resetIdleTimer()
         clock.postDelayed(object : Runnable {
@@ -64,6 +69,7 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        LauncherNotificationListener.instance?.refreshFromSystem()
         if (::appGrid.isInitialized) {
             val fresh = findApps()
             if (fresh.map { it.activityInfo.packageName } != apps.map { it.activityInfo.packageName }) {
@@ -161,7 +167,7 @@ class MainActivity : Activity() {
         weatherPill.addView(weatherIcon)
         weatherPill.addView(weatherText)
         actions.addView(weatherPill)
-        actions.addView(headerAction(R.drawable.ic_notifications_modern, "Notificações do sistema") { openSystemNotifications() })
+        actions.addView(headerAction(R.drawable.ic_notifications_modern, "Notificações") { openNotificationsPanel() })
         actions.addView(headerAction(R.drawable.ic_settings_modern, "Configurações") { openIntent(Intent(Settings.ACTION_SETTINGS)) })
         actions.addView(headerAction(R.drawable.ic_mic_modern, "Pesquisa por voz") { openVoice() })
         header.orientation = LinearLayout.HORIZONTAL
@@ -192,23 +198,184 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun openSystemNotifications() {
-        val component = android.content.ComponentName(this, NotificationShadeService::class.java)
-        val enabled = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
-            ?.split(':')
-            ?.any { it.equals(component.flattenToString(), ignoreCase = true) } == true
-        if (enabled && NotificationShadeService.openNotifications()) return
+    private fun isNotificationAccessEnabled(): Boolean {
+        val component = android.content.ComponentName(this, LauncherNotificationListener::class.java)
+        val enabled = Settings.Secure.getString(contentResolver, "enabled_notification_listeners").orEmpty()
+        return enabled.split(':').any { it.equals(component.flattenToString(), ignoreCase = true) }
+    }
 
-        Toast.makeText(
-            this,
-            "Ative o serviço do Minimal TV Launcher em Acessibilidade para abrir o painel nativo.",
-            Toast.LENGTH_LONG
-        ).show()
-        try {
-            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-        } catch (_: Exception) {
-            openIntent(Intent(Settings.ACTION_SETTINGS))
+    private fun openNotificationsPanel() {
+        if (!isNotificationAccessEnabled()) {
+            Toast.makeText(this, "Autorize o acesso às notificações para visualizar os avisos dos aplicativos.", Toast.LENGTH_LONG).show()
+            try { startActivity(Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")) }
+            catch (_: Exception) { openIntent(Intent(Settings.ACTION_SETTINGS)) }
+            return
         }
+        if (screenRoot.findViewWithTag<View>("notification_panel_root") != null) return
+        val scrim = FrameLayout(this).apply {
+            tag = "notification_panel_root"
+            setBackgroundColor(Color.argb(135, 0, 0, 0))
+            isFocusable = true
+            setOnClickListener { closeNotificationsPanel() }
+        }
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.TOP
+            setPadding(dp(24), dp(25), dp(24), dp(22))
+            background = rounded(Color.rgb(24, 33, 54), 26, Color.rgb(72, 104, 154))
+            isFocusable = true
+            isClickable = true
+            setOnClickListener { }
+        }
+        val header = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        val title = TextView(this).apply {
+            text = "Notificações"
+            textSize = 25f
+            setTextColor(Color.WHITE)
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        }
+        notificationCount = TextView(this).apply {
+            textSize = 13f
+            setTextColor(Color.rgb(190, 205, 226))
+            gravity = Gravity.CENTER
+        }
+        header.addView(title, LinearLayout.LayoutParams(0, -2, 1f))
+        header.addView(notificationCount)
+        panel.addView(header)
+        panel.addView(TextView(this).apply {
+            text = SimpleDateFormat("EEE, d 'de' MMMM  •  HH:mm", Locale("pt", "BR")).format(Date())
+            textSize = 13f
+            setTextColor(Color.rgb(190, 205, 226))
+            setPadding(0, dp(5), 0, dp(15))
+        })
+        val listScroll = android.widget.ScrollView(this).apply {
+            isFillViewport = false
+            overScrollMode = View.OVER_SCROLL_NEVER
+        }
+        notificationPanel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.TOP
+        }
+        listScroll.addView(notificationPanel, ViewGroup.LayoutParams(-1, -2))
+        panel.addView(listScroll, LinearLayout.LayoutParams(-1, 0, 1f))
+        val bottom = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(12), 0, 0)
+        }
+        val manage = TextView(this).apply {
+            text = "Gerenciar acesso"
+            textSize = 13f
+            setTextColor(Color.rgb(180, 218, 255))
+            isFocusable = true
+            isClickable = true
+            setOnClickListener {
+                try { startActivity(Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")) }
+                catch (_: Exception) { openIntent(Intent(Settings.ACTION_SETTINGS)) }
+            }
+        }
+        val clear = TextView(this).apply {
+            text = "Limpar tudo"
+            textSize = 13f
+            setTextColor(Color.rgb(180, 218, 255))
+            gravity = Gravity.CENTER
+            isFocusable = true
+            isClickable = true
+            setPadding(dp(12), dp(10), dp(12), dp(10))
+            setOnClickListener { LauncherNotificationListener.instance?.clearAll(); refreshNotificationPanel() }
+        }
+        val close = TextView(this).apply {
+            text = "Fechar"
+            textSize = 14f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            isFocusable = true
+            isClickable = true
+            setPadding(dp(14), dp(10), dp(14), dp(10))
+            background = rounded(Color.rgb(42, 59, 91), 14, Color.TRANSPARENT)
+            setOnClickListener { closeNotificationsPanel() }
+        }
+        bottom.addView(manage, LinearLayout.LayoutParams(0, dp(44), 1f))
+        bottom.addView(clear)
+        bottom.addView(close)
+        panel.addView(bottom)
+        scrim.addView(panel, FrameLayout.LayoutParams(dp(430), -1, Gravity.RIGHT))
+        screenRoot.addView(scrim, FrameLayout.LayoutParams(-1, -1))
+        refreshNotificationPanel()
+        notificationPanel?.post { notificationPanel?.getChildAt(0)?.requestFocus() }
+    }
+
+    private fun refreshNotificationPanel() {
+        val list = notificationPanel ?: return
+        list.removeAllViews()
+        val notices = LauncherNotificationListener.snapshot()
+        notificationCount?.text = if (notices.isEmpty()) "0 avisos" else "${notices.size} avisos"
+        if (notices.isEmpty()) {
+            list.addView(TextView(this).apply {
+                text = "Tudo em dia\\n\\nNenhuma notificação no momento."
+                textSize = 17f
+                gravity = Gravity.CENTER
+                setTextColor(Color.rgb(210, 222, 240))
+                setPadding(dp(18), dp(50), dp(18), dp(50))
+            }, LinearLayout.LayoutParams(-1, -2))
+            return
+        }
+        notices.take(40).forEach { notice ->
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(13), dp(12), dp(10), dp(12))
+                background = rounded(Color.rgb(42, 57, 86), 17, Color.rgb(63, 82, 119))
+                isFocusable = true
+                isClickable = true
+                setOnClickListener {
+                    LauncherNotificationListener.instance?.openNotification(notice.key)
+                    closeNotificationsPanel()
+                }
+                setOnFocusChangeListener { v, focused ->
+                    v.background = rounded(if (focused) Color.rgb(35, 88, 137) else Color.rgb(42, 57, 86),
+                        17, if (focused) accent else Color.rgb(63, 82, 119))
+                }
+            }
+            val icon = ImageView(this).apply {
+                try { setImageDrawable(packageManager.getApplicationIcon(notice.packageName)) }
+                catch (_: Exception) { setImageResource(android.R.drawable.sym_def_app_icon) }
+                scaleType = ImageView.ScaleType.FIT_CENTER
+            }
+            row.addView(icon, LinearLayout.LayoutParams(dp(38), dp(38)).apply { rightMargin = dp(12) })
+            val textColumn = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+            textColumn.addView(TextView(this).apply {
+                text = notice.appName
+                textSize = 11f
+                setTextColor(Color.rgb(180, 211, 245))
+                maxLines = 1
+            })
+            if (notice.title.isNotBlank()) textColumn.addView(TextView(this).apply {
+                text = notice.title
+                textSize = 15f
+                setTextColor(Color.WHITE)
+                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                maxLines = 2
+            })
+            if (notice.message.isNotBlank()) textColumn.addView(TextView(this).apply {
+                text = notice.message
+                textSize = 13f
+                setTextColor(Color.rgb(205, 216, 233))
+                maxLines = 3
+            })
+            row.addView(textColumn, LinearLayout.LayoutParams(0, -2, 1f))
+            list.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(9) })
+        }
+    }
+
+    private fun closeNotificationsPanel() {
+        val panel = screenRoot.findViewWithTag<View>("notification_panel_root") ?: return
+        screenRoot.removeView(panel)
+        notificationPanel = null
+        notificationCount = null
     }
 
     private fun showQuickPanel() {
