@@ -1,6 +1,7 @@
 package br.com.launcher.tv
 
 import android.app.Activity
+import android.animation.ObjectAnimator
 import android.content.Intent
 import android.content.pm.ResolveInfo
 import android.content.pm.PackageManager
@@ -50,6 +51,8 @@ class MainActivity : Activity() {
     private var showingAll = false
     private var organizing = false
     private var moving = -1
+    private var sortPulse: ObjectAnimator? = null
+    private var sortDoneButton: TextView? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -546,26 +549,40 @@ class MainActivity : Activity() {
                     val parser = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm", Locale.getDefault()); val fmt = java.text.SimpleDateFormat("HH:mm", Locale.getDefault())
                     val first = (0 until ts.length()).firstOrNull { i -> try { !parser.parse(ts.getString(i)).before(Date()) } catch (_: Exception) { false } } ?: 0
                     fun renderHoursForDate(dateKey: String) {
-                        val selectedDate = try { SimpleDateFormat("EEEE, dd/MM", Locale("pt", "BR")).format(SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(dateKey)!!) } catch (_: Exception) { dateKey }
-                        hoursTitle.text = "Previsão por hora — $selectedDate"
+                        val parsedDay = try { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(dateKey) } catch (_: Exception) { null }
+                        val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+                        val dayLabel = if (dateKey == today) "Hoje" else try { SimpleDateFormat("EEEE", Locale("pt", "BR")).format(parsedDay!!).replaceFirstChar { it.uppercase() } } catch (_: Exception) { dateKey }
+                        val dateLabel = try { SimpleDateFormat("dd/MM", Locale("pt", "BR")).format(parsedDay!!) } catch (_: Exception) { "" }
+                        hoursTitle.text = "Previsão por hora — $dayLabel${if (dateLabel.isNotBlank()) ", $dateLabel" else ""}"
                         hr.removeAllViews()
                         val indices = (0 until ts.length()).filter { ts.getString(it).startsWith(dateKey) }
+                        val nowIndex = if (dateKey == today) indices.minByOrNull { i ->
+                            try { kotlin.math.abs(parser.parse(ts.getString(i))!!.time - System.currentTimeMillis()) } catch (_: Exception) { Long.MAX_VALUE }
+                        } else null
                         indices.forEach { i ->
+                            val currentHour = i == nowIndex
                             val card = LinearLayout(this).apply {
                                 orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
                                 setPadding(dp(9), dp(7), dp(9), dp(7))
-                                background = rounded(Color.rgb(17, 23, 34), 14, Color.rgb(48, 60, 78))
+                                background = rounded(if (currentHour) Color.rgb(14, 58, 92) else Color.rgb(17, 23, 34), 14, if (currentHour) accent else Color.rgb(48,60,78))
                                 isFocusable = true; isClickable = true
-                                setOnFocusChangeListener { v, focused -> v.background = rounded(if (focused) Color.rgb(22, 43, 65) else Color.rgb(17,23,34), 14, if (focused) accent else Color.rgb(48,60,78)) }
+                                setOnFocusChangeListener { v, focused -> v.background = rounded(if (focused || currentHour) Color.rgb(14, 58, 92) else Color.rgb(17,23,34), 14, if (focused || currentHour) accent else Color.rgb(48,60,78)) }
                             }
                             val hour = try { fmt.format(parser.parse(ts.getString(i))!!) } catch (_: Exception) { "--:--" }
-                            card.addView(TextView(this).apply { text = hour; textSize = 13f; setTextColor(Color.LTGRAY) })
+                            card.addView(TextView(this).apply { text = if (currentHour) "$hour • Agora" else hour; textSize = 13f; setTextColor(Color.LTGRAY) })
                             card.addView(TextView(this).apply { text = weatherSymbol(wc.getInt(i)); textSize = 24f; setTextColor(Color.WHITE) })
                             card.addView(TextView(this).apply { text = tv.getDouble(i).toInt().toString() + "°"; textSize = 19f; setTextColor(Color.WHITE) })
                             card.addView(TextView(this).apply { text = rp.optInt(i).toString() + "% chuva"; textSize = 11f; setTextColor(Color.rgb(155,195,235)) })
                             hr.addView(card, LinearLayout.LayoutParams(dp(88), dp(112)).apply { rightMargin = dp(8) })
                         }
-                        if (indices.isNotEmpty()) hs.post { hs.scrollTo(0, 0); hr.getChildAt(0)?.requestFocus() }
+                        if (indices.isNotEmpty()) hs.post {
+                            val selected = nowIndex?.let { indices.indexOf(it) } ?: 0
+                            val target = hr.getChildAt(selected)
+                            if (target != null) {
+                                hs.scrollTo((target.left - dp(24)).coerceAtLeast(0), 0)
+                                target.requestFocus()
+                            }
+                        }
                     }
                     val todayKey = java.text.SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
                     renderHoursForDate(todayKey)
@@ -711,27 +728,7 @@ class MainActivity : Activity() {
         card.contentDescription = app.loadLabel(packageManager).toString()
         card.tag = index
         card.setOnClickListener { if (!organizing) launch(app) }
-        card.setOnLongClickListener {
-            if (!organizing) {
-                organizing = true
-                moving = index
-                Toast.makeText(this, "Organizar: use as setas para mover; OK salva; VOLTAR cancela", Toast.LENGTH_LONG).show()
-                true
-            } else false
-        }
-        card.setOnKeyListener { _, key, event ->
-            if (organizing && event.action == KeyEvent.ACTION_DOWN) {
-                when (key) {
-                    KeyEvent.KEYCODE_DPAD_LEFT -> { move(-1); true }
-                    KeyEvent.KEYCODE_DPAD_RIGHT -> { move(1); true }
-                    KeyEvent.KEYCODE_DPAD_UP -> { move(-5); true }
-                    KeyEvent.KEYCODE_DPAD_DOWN -> { move(5); true }
-                    KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> { saveOrder(); true }
-                    KeyEvent.KEYCODE_BACK -> { organizing = false; restoreOrder(); renderApps(); true }
-                    else -> false
-                }
-            } else false
-        }
+        card.setOnLongClickListener { startOrganizing(index); true }
         addGridCard(card, width, height, row, col)
     }
 
@@ -864,7 +861,42 @@ class MainActivity : Activity() {
         apps.addAll(ordered)
     }
 
+    private fun startOrganizing(index: Int) {
+        if (index !in apps.indices) return
+        organizing = true
+        moving = index
+        renderApps(index)
+        val card = appGrid.getChildAt(index) ?: return
+        sortPulse?.cancel()
+        sortPulse = ObjectAnimator.ofFloat(card, "alpha", 1f, 0.62f).apply {
+            duration = 420
+            repeatMode = ObjectAnimator.REVERSE
+            repeatCount = ObjectAnimator.INFINITE
+            start()
+        }
+        if (sortDoneButton == null) {
+            sortDoneButton = TextView(this).apply {
+                text = "✓  Concluir"; textSize = 13f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
+                setPadding(dp(13), dp(8), dp(13), dp(8))
+                background = rounded(Color.rgb(15, 42, 65), 16, accent)
+                isFocusable = true; isClickable = true
+                setOnClickListener { saveOrder() }
+            }
+        }
+        val done = sortDoneButton!!
+        if (done.parent == null) screenRoot.addView(done, FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.RIGHT).apply { rightMargin = dp(32); bottomMargin = dp(24) })
+        Toast.makeText(this, "Segure OK para pegar. Use as setas e toque em Concluir.", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun stopOrganizingUi() {
+        sortPulse?.cancel()
+        sortPulse = null
+        if (moving in apps.indices) appGrid.getChildAt(moving)?.alpha = 1f
+        sortDoneButton?.let { if (it.parent != null) screenRoot.removeView(it) }
+    }
+
     private fun saveOrder() {
+        stopOrganizingUi()
         organizing = false
         moving = -1
         prefs.edit().putString("order", apps.joinToString("|") { it.activityInfo.packageName }).apply()
@@ -890,25 +922,23 @@ class MainActivity : Activity() {
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (event.action == KeyEvent.ACTION_DOWN) {
             if (saverView != null) { dismissScreenSaver(); return true }
-            if (!organizing && (event.keyCode == KeyEvent.KEYCODE_MENU || (event.repeatCount > 0 && (event.keyCode == KeyEvent.KEYCODE_DPAD_CENTER || event.keyCode == KeyEvent.KEYCODE_ENTER)))) {
+            if (!organizing && event.repeatCount >= 1 && (event.keyCode == KeyEvent.KEYCODE_DPAD_CENTER || event.keyCode == KeyEvent.KEYCODE_ENTER)) {
                 val appIndex = currentFocus?.tag as? Int
-                if (appIndex != null && appIndex in apps.indices) {
-                    organizing = true; moving = appIndex
-                    Toast.makeText(this, "Organizar aplicativos: use as setas e pressione OK para salvar", Toast.LENGTH_LONG).show()
-                    return true
-                }
+                if (appIndex != null && appIndex in apps.indices) { startOrganizing(appIndex); return true }
             }
             if (organizing && event.keyCode in listOf(KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN)) {
                 val delta = when (event.keyCode) { KeyEvent.KEYCODE_DPAD_LEFT -> -1; KeyEvent.KEYCODE_DPAD_RIGHT -> 1; KeyEvent.KEYCODE_DPAD_UP -> -5; else -> 5 }
-                move(delta); return true
+                if (event.repeatCount == 0) move(delta)
+                return true
             }
             if (event.keyCode == KeyEvent.KEYCODE_BACK) {
                 if (screenRoot.findViewWithTag<View>("notification_panel_root") != null) { closeNotificationsPanel(); return true }
                 if (screenRoot.findViewWithTag<View>("weather_screen") != null) { screenRoot.removeView(screenRoot.findViewWithTag("weather_screen")); weatherPage = null; return true }
                 if (screenRoot.findViewWithTag<View>("quick_panel") != null) { screenRoot.removeView(screenRoot.findViewWithTag("quick_panel")); return true }
-                if (organizing) { organizing = false; moving = -1; restoreOrder(); renderApps(); return true }
+                if (organizing) { stopOrganizingUi(); organizing = false; moving = -1; restoreOrder(); renderApps(); return true }
             }
-            if (organizing && (event.keyCode == KeyEvent.KEYCODE_DPAD_CENTER || event.keyCode == KeyEvent.KEYCODE_ENTER)) { saveOrder(); return true }
+            if (organizing && event.action == KeyEvent.ACTION_UP && (event.keyCode == KeyEvent.KEYCODE_DPAD_CENTER || event.keyCode == KeyEvent.KEYCODE_ENTER)) { saveOrder(); return true }
+            if (organizing && event.keyCode == KeyEvent.KEYCODE_MENU) { saveOrder(); return true }
         }
         return super.dispatchKeyEvent(event)
     }
@@ -988,7 +1018,7 @@ class MainActivity : Activity() {
         val quick = screenRoot.findViewWithTag<View>("quick_panel")
         if (quick != null) { screenRoot.removeView(quick); return }
         if (weatherPage != null) { screenRoot.removeView(weatherPage); weatherPage = null; return }
-        if (organizing) { organizing = false; restoreOrder(); renderApps(); return }
+        if (organizing) { stopOrganizingUi(); organizing = false; moving = -1; restoreOrder(); renderApps(); return }
         if (showingAll) { showingAll = false; renderApps(); return }
         super.onBackPressed()
     }
