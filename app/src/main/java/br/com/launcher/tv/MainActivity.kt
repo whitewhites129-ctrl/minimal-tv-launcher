@@ -81,26 +81,20 @@ class MainActivity : Activity() {
         }
         root.addView(createHeader(), LinearLayout.LayoutParams(-1, dp(104)))
 
-        val content = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER_VERTICAL
+        val content = FrameLayout(this)
+        val scroll = android.widget.ScrollView(this).apply {
+            isFillViewport = true
+            clipToPadding = false
+            overScrollMode = View.OVER_SCROLL_NEVER
         }
-        val heading = TextView(this).apply {
-            text = "Seus apps"
-            textSize = 25f
-            setTextColor(Color.WHITE)
-            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-            setPadding(dp(2), 0, 0, dp(14))
-        }
-        content.addView(heading)
-        val center = FrameLayout(this)
         appGrid = GridLayout(this).apply {
             columnCount = 5
             useDefaultMargins = false
             alignmentMode = GridLayout.ALIGN_BOUNDS
+            setPadding(0, dp(10), 0, dp(10))
         }
-        center.addView(appGrid, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
-        content.addView(center, LinearLayout.LayoutParams(-1, -2))
+        scroll.addView(appGrid, android.widget.ScrollView.LayoutParams(-1, -2))
+        content.addView(scroll, FrameLayout.LayoutParams(-1, -1))
         root.addView(content, LinearLayout.LayoutParams(-1, 0, 1f))
 
         screenRoot = FrameLayout(this)
@@ -123,9 +117,50 @@ class MainActivity : Activity() {
             textSize = 15f
             setTextColor(Color.rgb(185, 195, 210))
         }
-        header.addView(clock)
-        header.addView(date)
+        val left = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        left.addView(clock)
+        left.addView(date)
+        val actions = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        actions.addView(headerAction("☀", "Clima") { refreshWeather() })
+        actions.addView(headerAction("♧", "Notificações") {
+            try { startActivity(Intent("android.settings.NOTIFICATION_SETTINGS")) }
+            catch (_: Exception) { openIntent(Intent(Settings.ACTION_SETTINGS)) }
+        })
+        actions.addView(headerAction("⚙", "Configurações") { openIntent(Intent(Settings.ACTION_SETTINGS)) })
+        actions.addView(headerAction("🎙", "Pesquisa por voz") { openVoice() })
+        header.orientation = LinearLayout.HORIZONTAL
+        header.gravity = Gravity.CENTER_VERTICAL
+        header.addView(left, LinearLayout.LayoutParams(0, -1, 1f))
+        header.addView(actions, LinearLayout.LayoutParams(-2, -1))
+        refreshWeather()
         return header
+    }
+
+    private fun headerAction(glyph: String, description: String, action: () -> Unit): View {
+        return TextView(this).apply {
+            text = glyph
+            textSize = 25f
+            gravity = Gravity.CENTER
+            setTextColor(Color.rgb(220, 232, 246))
+            contentDescription = description
+            isFocusable = true
+            isClickable = true
+            setPadding(dp(13), dp(10), dp(13), dp(10))
+            background = rounded(Color.TRANSPARENT, 18, Color.TRANSPARENT)
+            setOnClickListener { action() }
+            setOnFocusChangeListener { v, focused ->
+                v.background = rounded(if (focused) Color.rgb(18, 67, 105) else Color.TRANSPARENT,
+                    18, if (focused) accent else Color.TRANSPARENT)
+                v.scaleX = if (focused) 1.08f else 1f
+                v.scaleY = if (focused) 1.08f else 1f
+            }
+        }
     }
 
     private fun actionButton(iconRes: Int, description: String, action: () -> Unit): View {
@@ -234,10 +269,10 @@ class MainActivity : Activity() {
         appGrid.removeAllViews()
         appGrid.columnCount = 5
         val screenWidth = (resources.displayMetrics.widthPixels / resources.displayMetrics.density).toInt()
-        val available = screenWidth - 104
-        val tileWidth = ((available - dp(64)) / 5).coerceIn(dp(128), dp(190))
-        val availableHeight = (resources.displayMetrics.heightPixels / resources.displayMetrics.density).toInt() - 108 - 54 - 56
-        val tileHeight = dp(((availableHeight - 76) / 2).coerceIn(104, 126))
+        val contentWidth = screenWidth - 116
+        val horizontalMargins = dp(18) * 5
+        val tileWidth = dp(((contentWidth - horizontalMargins) / 5).coerceIn(118, 220))
+        val tileHeight = (tileWidth * 0.62f).toInt().coerceAtLeast(dp(76))
         val visible = if (showingAll) apps.toList() else apps.take(if (apps.size > 10) 9 else 10)
         if (showingAll) {
             visible.forEachIndexed { index, app ->
@@ -254,7 +289,7 @@ class MainActivity : Activity() {
         }
         if (appGrid.childCount > 0) {
             val actual = focus.coerceIn(0, appGrid.childCount - 1)
-            appGrid.getChildAt(actual)?.requestFocus()
+            appGrid.post { appGrid.getChildAt(actual)?.requestFocus() }
         }
     }
 
@@ -273,6 +308,7 @@ class MainActivity : Activity() {
         }
         card.background = if (banner == null) appCardBackground(artwork)
             else rounded(Color.rgb(18, 22, 32), 17, Color.rgb(35, 43, 56))
+        card.foreground = rounded(Color.TRANSPARENT, 17, Color.TRANSPARENT)
         card.clipToOutline = true
         card.setPadding(if (banner != null) 0 else dp(8), if (banner != null) 0 else dp(8),
             if (banner != null) 0 else dp(8), if (banner != null) 0 else dp(8))
@@ -320,7 +356,10 @@ class MainActivity : Activity() {
                 20,
                 if (focused) accent else Color.rgb(35, 43, 56)
             )
-            view.elevation = if (focused) dp(9).toFloat() else 0f
+            view.foreground = rounded(Color.TRANSPARENT, 20, if (focused) accent else Color.TRANSPARENT)
+            view.elevation = if (focused) dp(10).toFloat() else 0f
+            view.scaleX = if (focused) 1.045f else 1f
+            view.scaleY = if (focused) 1.045f else 1f
         }
     }
 
@@ -364,19 +403,20 @@ class MainActivity : Activity() {
     private fun addAllAppsCard(width: Int, height: Int, row: Int, col: Int) {
         val card = createCard()
         card.addView(TextView(this).apply {
-            text = "▦"
-            textSize = 62f
+            text = "＋"
+            textSize = 66f
             setTextColor(Color.WHITE)
             gravity = Gravity.CENTER
+            typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
         }, LinearLayout.LayoutParams(dp(76), dp(76)))
         card.addView(TextView(this).apply {
-            text = "Mais apps"
-            textSize = 15f
+            text = "Todos os apps"
+            textSize = 14f
             setTextColor(Color.WHITE)
             gravity = Gravity.CENTER
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
         })
-        card.contentDescription = "Mais aplicativos"
+        card.contentDescription = "Abrir todos os aplicativos"
         card.setOnClickListener { showingAll = true; renderApps() }
         addGridCard(card, width, height, row, col)
     }
