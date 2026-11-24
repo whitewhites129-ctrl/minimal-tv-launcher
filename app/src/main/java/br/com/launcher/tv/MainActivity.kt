@@ -169,9 +169,9 @@ class MainActivity : Activity() {
         }
         weatherPill.addView(weatherIcon)
         weatherPill.addView(weatherText)
+        actions.addView(headerAction(R.drawable.ic_mic_modern, "Pesquisa por voz") { openVoice() })
         actions.addView(headerAction(R.drawable.ic_notifications_modern, "Notificações") { openNotificationsPanel() })
         actions.addView(headerAction(R.drawable.ic_settings_modern, "Configurações") { openIntent(Intent(Settings.ACTION_SETTINGS)) })
-        actions.addView(headerAction(R.drawable.ic_mic_modern, "Pesquisa por voz") { openVoice() })
         val centeredHeader = FrameLayout(this).apply { clipChildren = false; clipToPadding = false }
         centeredHeader.addView(left, FrameLayout.LayoutParams(dp(230), -1, Gravity.LEFT or Gravity.CENTER_VERTICAL))
         centeredHeader.addView(weatherPill, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
@@ -271,6 +271,7 @@ class MainActivity : Activity() {
             setPadding(0, dp(12), 0, 0)
         }
         val manage = TextView(this).apply {
+            id = View.generateViewId()
             text = "Gerenciar acesso"
             textSize = 13f
             setTextColor(Color.rgb(180, 218, 255))
@@ -282,16 +283,21 @@ class MainActivity : Activity() {
             }
         }
         val clear = TextView(this).apply {
+            id = View.generateViewId()
             text = "Limpar tudo"
             textSize = 13f
             setTextColor(Color.rgb(180, 218, 255))
             gravity = Gravity.CENTER
             isFocusable = true
             isClickable = true
-            setPadding(dp(12), dp(10), dp(12), dp(10))
-            setOnClickListener { LauncherNotificationListener.instance?.clearAll(); refreshNotificationPanel() }
+            setPadding(dp(14), dp(10), dp(14), dp(10))
+            minWidth = dp(104); minHeight = dp(54)
+            background = rounded(Color.rgb(25, 25, 25), 12, Color.rgb(70, 70, 70))
+            setOnFocusChangeListener { v, focused -> v.background = rounded(if (focused) Color.rgb(18, 67, 105) else Color.rgb(25,25,25), 12, if (focused) accent else Color.rgb(70,70,70)) }
+            setOnClickListener { LauncherNotificationListener.instance?.clearAll(); refreshNotificationPanel(); close.requestFocus() }
         }
         val close = TextView(this).apply {
+            id = View.generateViewId()
             text = "Fechar"
             textSize = 14f
             setTextColor(Color.WHITE)
@@ -299,17 +305,19 @@ class MainActivity : Activity() {
             isFocusable = true
             isClickable = true
             setPadding(dp(14), dp(10), dp(14), dp(10))
-            background = rounded(Color.rgb(42, 59, 91), 14, Color.TRANSPARENT)
+            minWidth = dp(88); minHeight = dp(54)
+            background = rounded(Color.rgb(28, 38, 54), 12, Color.rgb(70, 80, 95))
+            setOnFocusChangeListener { v, focused -> v.background = rounded(if (focused) Color.rgb(18, 67, 105) else Color.rgb(28,38,54), 12, if (focused) accent else Color.rgb(70,80,95)) }
             setOnClickListener { closeNotificationsPanel() }
         }
-        bottom.addView(manage, LinearLayout.LayoutParams(0, dp(44), 1f))
-        bottom.addView(clear)
-        bottom.addView(close)
+        bottom.addView(manage, LinearLayout.LayoutParams(0, dp(58), 1f))
+        bottom.addView(clear, LinearLayout.LayoutParams(-2, dp(58)).apply { rightMargin = dp(8) })
+        bottom.addView(close, LinearLayout.LayoutParams(-2, dp(58)))
         panel.addView(bottom)
-        scrim.addView(panel, FrameLayout.LayoutParams(dp(430), -1, Gravity.RIGHT))
+        scrim.addView(panel, FrameLayout.LayoutParams(dp(470), -1, Gravity.RIGHT))
         screenRoot.addView(scrim, FrameLayout.LayoutParams(-1, -1))
         refreshNotificationPanel()
-        notificationPanel?.post { notificationPanel?.getChildAt(0)?.requestFocus() }
+        panel.post { (notificationPanel?.getChildAt(0) ?: manage).requestFocus() }
     }
 
     private fun refreshNotificationPanel() {
@@ -511,13 +519,13 @@ class MainActivity : Activity() {
 
     private fun openWeatherScreen() {
         if (weatherPage != null) return
-        val page = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(42), dp(28), dp(42), dp(24)); setBackgroundColor(Color.BLACK); isFocusable = true }
+        val page = LinearLayout(this).apply { tag = "weather_screen"; orientation = LinearLayout.VERTICAL; setPadding(dp(42), dp(28), dp(42), dp(24)); setBackgroundColor(Color.rgb(5, 8, 14)); isFocusable = true }
         weatherPage = page
         val top = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         top.addView(TextView(this).apply { text = "Previsão do tempo"; textSize = 27f; setTextColor(Color.WHITE) }, LinearLayout.LayoutParams(0, -2, 1f))
         val close = TextView(this).apply { text = "✕  Fechar"; textSize = 16f; setTextColor(Color.WHITE); gravity = Gravity.CENTER; setPadding(dp(16), dp(10), dp(16), dp(10)); isFocusable = true; isClickable = true; background = rounded(Color.rgb(28, 28, 28), 14, Color.rgb(75, 75, 75)); setOnClickListener { screenRoot.removeView(page); weatherPage = null } }
         top.addView(close); page.addView(top)
-        page.addView(TextView(this).apply { text = "São Bernardo do Campo • SP"; textSize = 15f; setTextColor(Color.LTGRAY); setPadding(0, dp(5), 0, dp(12)) })
+        page.addView(TextView(this).apply { text = "Batistini • São Bernardo do Campo, SP"; textSize = 15f; setTextColor(Color.LTGRAY); setPadding(0, dp(5), 0, dp(12)) })
         page.addView(TextView(this).apply { text = weatherIcon.text.toString() + "   " + weatherText.text.toString(); textSize = 23f; setTextColor(Color.WHITE); setPadding(dp(18), dp(12), dp(18), dp(12)); background = rounded(Color.rgb(16, 24, 38), 18, Color.rgb(45, 65, 90)) }, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(16) })
         page.addView(TextView(this).apply { text = "Próximas horas"; textSize = 19f; setTextColor(Color.WHITE); setPadding(0, 0, 0, dp(8)) })
         val hs = android.widget.HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false }; val hr = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }; hs.addView(hr)
@@ -527,7 +535,7 @@ class MainActivity : Activity() {
         screenRoot.addView(page, FrameLayout.LayoutParams(-1, -1)); close.requestFocus()
         Thread {
             try {
-                val url = URL("https://api.open-meteo.com/v1/forecast?latitude=-23.6914&longitude=-46.5650&hourly=temperature_2m,precipitation_probability,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&forecast_days=7&timezone=America%2FSao_Paulo")
+                val url = URL("https://api.open-meteo.com/v1/forecast?latitude=-23.7717&longitude=-46.59097&hourly=temperature_2m,precipitation_probability,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&forecast_days=7&timezone=America%2FSao_Paulo")
                 val c = (url.openConnection() as HttpURLConnection).apply { connectTimeout = 12000; readTimeout = 12000 }
                 val j = JSONObject(c.inputStream.bufferedReader().use { it.readText() }); c.disconnect()
                 val h = j.getJSONObject("hourly"); val d = j.getJSONObject("daily")
@@ -677,7 +685,8 @@ class MainActivity : Activity() {
             if (banner != null) -1 else dp(66)
         ))
         card.contentDescription = app.loadLabel(packageManager).toString()
-        card.setOnClickListener { launch(app) }
+        card.tag = index
+        card.setOnClickListener { if (!organizing) launch(app) }
         card.setOnLongClickListener {
             if (!organizing) {
                 organizing = true
@@ -857,6 +866,18 @@ class MainActivity : Activity() {
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (event.action == KeyEvent.ACTION_DOWN) {
             if (saverView != null) { dismissScreenSaver(); return true }
+            if (!organizing && event.repeatCount > 0 && (event.keyCode == KeyEvent.KEYCODE_DPAD_CENTER || event.keyCode == KeyEvent.KEYCODE_ENTER)) {
+                val appIndex = currentFocus?.tag as? Int
+                if (appIndex != null && appIndex in apps.indices) {
+                    organizing = true; moving = appIndex
+                    Toast.makeText(this, "Organizar aplicativos: use as setas e pressione OK para salvar", Toast.LENGTH_LONG).show()
+                    return true
+                }
+            }
+            if (organizing && event.keyCode in listOf(KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN)) {
+                val delta = when (event.keyCode) { KeyEvent.KEYCODE_DPAD_LEFT -> -1; KeyEvent.KEYCODE_DPAD_RIGHT -> 1; KeyEvent.KEYCODE_DPAD_UP -> -5; else -> 5 }
+                move(delta); return true
+            }
             if (event.keyCode == KeyEvent.KEYCODE_BACK) {
                 if (screenRoot.findViewWithTag<View>("notification_panel_root") != null) { closeNotificationsPanel(); return true }
                 if (screenRoot.findViewWithTag<View>("weather_screen") != null) { screenRoot.removeView(screenRoot.findViewWithTag("weather_screen")); return true }
