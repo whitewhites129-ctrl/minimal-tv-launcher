@@ -87,17 +87,19 @@ class MainActivity : Activity() {
             clipToPadding = false
             overScrollMode = View.OVER_SCROLL_NEVER
         }
+        val gridFrame = FrameLayout(this)
         appGrid = GridLayout(this).apply {
             columnCount = 5
             useDefaultMargins = false
             alignmentMode = GridLayout.ALIGN_BOUNDS
             setPadding(0, dp(10), 0, dp(10))
         }
-        scroll.addView(appGrid, ViewGroup.LayoutParams(-1, -2))
+        gridFrame.addView(appGrid, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
+        scroll.addView(gridFrame, ViewGroup.LayoutParams(-1, -2))
         content.addView(scroll, FrameLayout.LayoutParams(-1, -1))
         scroll.post {
-            val extra = scroll.height - appGrid.height
-            appGrid.translationY = if (extra > 0) extra / 2f else 0f
+            gridFrame.minimumHeight = scroll.height
+            gridFrame.requestLayout()
         }
         root.addView(content, LinearLayout.LayoutParams(-1, 0, 1f))
 
@@ -159,7 +161,7 @@ class MainActivity : Activity() {
         weatherPill.addView(weatherIcon)
         weatherPill.addView(weatherText)
         actions.addView(weatherPill)
-        actions.addView(headerAction(R.drawable.ic_notifications_modern, "Painel rápido") { showQuickPanel() })
+        actions.addView(headerAction(R.drawable.ic_notifications_modern, "Notificações do sistema") { openSystemNotifications() })
         actions.addView(headerAction(R.drawable.ic_settings_modern, "Configurações") { openIntent(Intent(Settings.ACTION_SETTINGS)) })
         actions.addView(headerAction(R.drawable.ic_mic_modern, "Pesquisa por voz") { openVoice() })
         header.orientation = LinearLayout.HORIZONTAL
@@ -187,6 +189,25 @@ class MainActivity : Activity() {
                 v.scaleX = if (focused) 1.08f else 1f
                 v.scaleY = if (focused) 1.08f else 1f
             }
+        }
+    }
+
+    private fun openSystemNotifications() {
+        val component = android.content.ComponentName(this, NotificationShadeService::class.java)
+        val enabled = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
+            ?.split(':')
+            ?.any { it.equals(component.flattenToString(), ignoreCase = true) } == true
+        if (enabled && NotificationShadeService.openNotifications()) return
+
+        Toast.makeText(
+            this,
+            "Ative o serviço do Minimal TV Launcher em Acessibilidade para abrir o painel nativo.",
+            Toast.LENGTH_LONG
+        ).show()
+        try {
+            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+        } catch (_: Exception) {
+            openIntent(Intent(Settings.ACTION_SETTINGS))
         }
     }
 
@@ -229,7 +250,7 @@ class MainActivity : Activity() {
                 isClickable = true
                 setOnClickListener {
                     screenRoot.removeView(scrim)
-                    openIntent(intent)
+                    if (title == "Notificações") openSystemNotifications() else openIntent(intent)
                 }
                 setOnFocusChangeListener { v, focused ->
                     v.background = rounded(if (focused) Color.rgb(30, 91, 145) else Color.rgb(43, 58, 88),
