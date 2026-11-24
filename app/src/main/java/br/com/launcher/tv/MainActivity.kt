@@ -590,13 +590,13 @@ class MainActivity : Activity() {
                                 id = View.generateViewId()
                                 orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
                                 setPadding(dp(9), dp(7), dp(9), dp(7))
-                                background = rounded(Color.rgb(7, 11, 18), 14, if (currentHour) Color.rgb(16, 94, 126) else Color.rgb(29, 41, 56))
-                                isFocusable = true; isClickable = true
+                                background = rounded(Color.rgb(12, 17, 27), 13, if (currentHour) Color.rgb(16, 94, 126) else Color.rgb(30, 42, 57))
+                                isFocusable = true; isFocusableInTouchMode = true; isClickable = true
                                 setOnFocusChangeListener { v, focused ->
                                     v.background = rounded(
-                                        if (focused) Color.rgb(13, 38, 61) else Color.rgb(7, 11, 18),
-                                        14,
-                                        if (focused) accent else if (currentHour) Color.rgb(16, 94, 126) else Color.rgb(29, 41, 56)
+                                        if (focused) Color.rgb(13, 38, 61) else Color.rgb(12, 17, 27),
+                                        13,
+                                        if (focused) accent else if (currentHour) Color.rgb(16, 94, 126) else Color.rgb(30, 42, 57)
                                     )
                                 }
                             }
@@ -662,11 +662,32 @@ class MainActivity : Activity() {
                         dl.addView(card, params)
                         if (firstDayCard == null) firstDayCard = card
                     }
-                    val dayTarget = firstDayCard
-                    if (dayTarget != null) {
-                        for (i in 0 until hr.childCount) hr.getChildAt(i).nextFocusDownId = dayTarget.id
-                        for (i in 0 until dl.childCount) dl.getChildAt(i).nextFocusUpId = selectedHourCard?.id ?: hr.getChildAt(0)?.id ?: View.NO_ID
-                    }                }
+                    // Keep DPAD focus strictly inside the two forecast sections.
+                    val hourCards = (0 until hr.childCount).map { hr.getChildAt(it) }
+                    val dayCards = (0 until dl.childCount).map { dl.getChildAt(it) }
+                    val firstHour = hourCards.firstOrNull()
+                    val lastHour = hourCards.lastOrNull()
+                    val firstDay = firstDayCard
+                    val returnHour = selectedHourCard ?: firstHour
+                    hourCards.forEachIndexed { index, card ->
+                        card.nextFocusLeftId = hourCards.getOrNull(index - 1)?.id ?: card.id
+                        card.nextFocusRightId = hourCards.getOrNull(index + 1)?.id ?: card.id
+                        card.nextFocusUpId = card.id
+                        card.nextFocusDownId = firstDay?.id ?: card.id
+                    }
+                    dayCards.forEachIndexed { index, card ->
+                        card.nextFocusLeftId = dayCards.getOrNull(index - 1)?.id ?: card.id
+                        card.nextFocusRightId = dayCards.getOrNull(index + 1)?.id ?: card.id
+                        card.nextFocusUpId = returnHour?.id ?: card.id
+                        card.nextFocusDownId = card.id
+                    }
+                    // The containers and page must never become focus targets.
+                    page.isFocusable = false
+                    hs.isFocusable = false
+                    hr.isFocusable = false
+                    ds.isFocusable = false
+                    dl.isFocusable = false
+                }
             } catch (_: Exception) { runOnUiThread { hr.removeAllViews(); hr.addView(TextView(this).apply { text = "Não foi possível carregar a previsão. Verifique a internet."; setTextColor(Color.LTGRAY); textSize = 15f }) } }
         }.start()
     }
