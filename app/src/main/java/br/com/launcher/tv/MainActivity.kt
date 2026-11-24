@@ -93,7 +93,7 @@ class MainActivity : Activity() {
             alignmentMode = GridLayout.ALIGN_BOUNDS
             setPadding(0, dp(10), 0, dp(10))
         }
-        scroll.addView(appGrid, android.widget.ScrollView.LayoutParams(-1, -2))
+        scroll.addView(appGrid, ViewGroup.LayoutParams(-1, -2))
         content.addView(scroll, FrameLayout.LayoutParams(-1, -1))
         root.addView(content, LinearLayout.LayoutParams(-1, 0, 1f))
 
