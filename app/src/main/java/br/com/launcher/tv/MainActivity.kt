@@ -430,6 +430,31 @@ class MainActivity : Activity() {
 
     private fun openAccessibilitySettings() {
         prefs.edit().putBoolean("setup_wizard_pending", true).apply()
+
+        // Android 11+ can open the details page for this exact accessibility service.
+        // Fall back to the general Accessibility screen on TV firmware that does not support it.
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            try {
+                val component = android.content.ComponentName(
+                    this,
+                    LauncherAccessibilityService::class.java
+                )
+                val detailsIntent = Intent("android.settings.ACCESSIBILITY_DETAILS_SETTINGS").apply {
+                    putExtra(
+                        "android.provider.extra.ACCESSIBILITY_SERVICE_COMPONENT_NAME",
+                        component.flattenToString()
+                    )
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                if (detailsIntent.resolveActivity(packageManager) != null) {
+                    startActivity(detailsIntent)
+                    return
+                }
+            } catch (_: Exception) {
+                // Some Android TV settings apps do not expose the per-service details page.
+            }
+        }
+
         openIntent(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
     }
 
