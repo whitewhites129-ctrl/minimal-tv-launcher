@@ -393,11 +393,6 @@ class MainActivity : Activity() {
         return enabled.split(':').any { it.contains("LauncherAccessibilityService", true) }
     }
 
-    private fun isNotificationAccessEnabled(): Boolean {
-        val enabled = Settings.Secure.getString(contentResolver, "enabled_notification_listeners") ?: return false
-        return enabled.split(':').any { it.contains(packageName, true) }
-    }
-
     private fun showSetupWizard() {
         val home = if (isHomeRoleHeld()) "Concluído" else "Pendente"
         val accessibility = if (isAccessibilityEnabled()) "Ativada" else "Opcional — não ativada"
@@ -409,7 +404,7 @@ class MainActivity : Activity() {
             }
             .setPositiveButton("Verificar novamente") { _, _ ->
                 if (isHomeRoleHeld()) { prefs.edit().putBoolean("setup_wizard_pending", false).putBoolean("setup_wizard_seen", true).apply(); Toast.makeText(this, "Launcher Lite está definido como padrão.", Toast.LENGTH_LONG).show() }
-                else { prefs.edit().putBoolean("setup_wizard_pending", true).apply(); showSetupWizard() }
+                else { prefs.edit().putBoolean("setup_wizard_pending", true).apply(); Toast.makeText(this, "Ainda falta definir o Launcher Lite como tela inicial padrão.", Toast.LENGTH_LONG).show() }
             }.setNeutralButton("Agora não") { _, _ -> prefs.edit().putBoolean("setup_wizard_seen", true).putBoolean("setup_wizard_pending", false).apply() }.show()
     }
 
@@ -429,15 +424,6 @@ class MainActivity : Activity() {
         } catch (_: Exception) {
             try { startActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)) }
             catch (_: Exception) { Toast.makeText(this, "Vá em Configurações > Apps > Apps padrão > App de início e selecione Launcher Lite.", Toast.LENGTH_LONG).show() }
-        }
-    }
-
-    @Deprecated("Deprecated in Android")
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == 4102) {
-            if (isHomeRoleHeld()) { prefs.edit().putBoolean("setup_wizard_pending", false).putBoolean("setup_wizard_seen", true).apply(); Toast.makeText(this, "Launcher Lite definido como padrão!", Toast.LENGTH_LONG).show() }
-            else Toast.makeText(this, "A TV não confirmou a seleção. Tente em Apps padrão > App de início.", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -831,6 +817,15 @@ class MainActivity : Activity() {
     @Deprecated("Deprecated by Android, retained for TV speech recognizer compatibility")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == 4102) {
+            if (isHomeRoleHeld()) {
+                prefs.edit().putBoolean("setup_wizard_pending", false).putBoolean("setup_wizard_seen", true).apply()
+                Toast.makeText(this, "Launcher Lite definido como padrão!", Toast.LENGTH_LONG).show()
+            } else {
+                Toast.makeText(this, "A TV não confirmou a seleção. Tente em Apps padrão > App de início.", Toast.LENGTH_LONG).show()
+            }
+            return
+        }
         if (requestCode != 701 || resultCode != RESULT_OK) return
         val spoken = data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull().orEmpty()
         val normalized = spoken.lowercase(Locale("pt", "BR"))
