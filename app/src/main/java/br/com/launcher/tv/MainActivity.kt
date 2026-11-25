@@ -92,23 +92,28 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(58), dp(34), dp(58), dp(28))
             setBackgroundColor(Color.BLACK)
+            clipChildren = false
+            clipToPadding = false
             layoutParams = ViewGroup.LayoutParams(-1, -1)
         }
         root.addView(createHeader(), LinearLayout.LayoutParams(-1, dp(104)))
         root.addView(createChannelRow(), LinearLayout.LayoutParams(-1, dp(142)))
 
-        val content = FrameLayout(this)
+        val content = FrameLayout(this).apply { clipChildren = false; clipToPadding = false }
         val scroll = android.widget.ScrollView(this).apply {
             isFillViewport = true
             clipToPadding = false
+            clipChildren = false
             overScrollMode = View.OVER_SCROLL_NEVER
         }
-        val gridFrame = FrameLayout(this)
+        val gridFrame = FrameLayout(this).apply { clipChildren = false; clipToPadding = false }
         appGrid = GridLayout(this).apply {
             columnCount = 5
             useDefaultMargins = false
             alignmentMode = GridLayout.ALIGN_BOUNDS
-            setPadding(0, dp(10), 0, dp(10))
+            clipChildren = false
+            clipToPadding = false
+            setPadding(dp(4), dp(14), dp(4), dp(14))
         }
         gridFrame.addView(appGrid, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
         scroll.addView(gridFrame, ViewGroup.LayoutParams(-1, -2))
@@ -144,6 +149,8 @@ class MainActivity : Activity() {
     private fun createChannelRow(): View {
         channelRowContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
+            clipChildren = false
+            clipToPadding = false
             setPadding(0, dp(3), 0, dp(8))
         }
         return channelRowContainer.also { renderChannels() }
@@ -173,8 +180,16 @@ class MainActivity : Activity() {
         val scroller = android.widget.HorizontalScrollView(this).apply {
             isHorizontalScrollBarEnabled = false
             overScrollMode = View.OVER_SCROLL_NEVER
+            clipChildren = false
+            clipToPadding = false
+            setPadding(dp(4), dp(5), dp(4), dp(7))
         }
-        val strip = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        val strip = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            clipChildren = false
+            clipToPadding = false
+        }
         val channels = savedChannels()
         if (channels.isEmpty()) {
             strip.addView(TextView(this).apply {
@@ -192,7 +207,10 @@ class MainActivity : Activity() {
                 setPadding(dp(12), dp(8), dp(12), dp(8))
                 background = rounded(Color.rgb(14, 23, 34), 15, Color.rgb(42, 62, 82))
                 isFocusable = true
+                isFocusableInTouchMode = true
                 isClickable = true
+                clipChildren = false
+                clipToPadding = false
                 setOnClickListener { openSaimoChannel(name) }
                 setOnLongClickListener {
                     AlertDialog.Builder(this@MainActivity)
@@ -206,8 +224,9 @@ class MainActivity : Activity() {
                 setOnFocusChangeListener { v, focused ->
                     v.background = rounded(if (focused) Color.rgb(13, 43, 65) else Color.rgb(14, 23, 34),
                         15, if (focused) accent else Color.rgb(42, 62, 82))
-                    v.scaleX = if (focused) 1.04f else 1f
-                    v.scaleY = if (focused) 1.04f else 1f
+                    v.scaleX = 1f
+                    v.scaleY = 1f
+                    v.elevation = if (focused) dp(8).toFloat() else 0f
                 }
             }
             tile.addView(TextView(this).apply {
