@@ -11,8 +11,8 @@ android {
         applicationId = "br.com.launcher.tv"
         minSdk = 23
         targetSdk = 28
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 3
+        versionName = "0.3.0"
     }
 
     val releaseStoreFile = System.getenv("ANDROID_KEYSTORE_PATH")
