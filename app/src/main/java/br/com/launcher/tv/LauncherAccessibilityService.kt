@@ -34,8 +34,9 @@ class LauncherAccessibilityService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
-            event?.eventType != AccessibilityEvent.TYPE_WINDOWS_CHANGED) return
+        // Only react to actual foreground activity changes. Window changes also fire
+        // when quick settings/side panels animate and caused focus/panel flicker.
+        if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
 
         // Never fight Android's HOME selection. The service is only a fallback
         // after Launcher Lite has already been selected as the default launcher.
