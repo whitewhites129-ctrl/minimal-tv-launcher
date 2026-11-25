@@ -391,7 +391,7 @@ class MainActivity : Activity() {
 
     private fun showLauncherSettingsDialog() {
         AlertDialog.Builder(this).setTitle("Configurações")
-            .setItems(arrayOf("Assistente de configuração", "Definir Launcher Lite como tela inicial", "Acesso às notificações", "Configurações do Android")) { _, which ->
+            .setItems(arrayOf("Assistente de configuração", "Definir Launcher Lite como tela inicial", "Ativar acessibilidade (opcional)", "Acesso às notificações", "Configurações do Android")) { _, which ->
                 when (which) {
                     0 -> {
                         prefs.edit().putInt("setup_wizard_step", 0)
@@ -400,11 +400,12 @@ class MainActivity : Activity() {
                         showSetupWizard()
                     }
                     1 -> requestDefaultHome()
-                    2 -> {
+                    2 -> openAccessibilitySettings()
+                    3 -> {
                         prefs.edit().putBoolean("setup_wizard_pending", true).apply()
                         openIntent(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                     }
-                    3 -> openIntent(Intent(Settings.ACTION_SETTINGS))
+                    4 -> openIntent(Intent(Settings.ACTION_SETTINGS))
                 }
             }.setNegativeButton("Fechar", null).show()
     }
@@ -426,6 +427,23 @@ class MainActivity : Activity() {
         packageManager.queryIntentActivities(homeIntent, PackageManager.MATCH_DEFAULT_ONLY)
             .any { it.activityInfo?.packageName == packageName }
     } catch (_: Exception) { false }
+
+    private fun openAccessibilitySettings() {
+        try {
+            val component = android.content.ComponentName(this, LauncherAccessibilityService::class.java)
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                val detailsIntent = Intent("android.settings.ACCESSIBILITY_DETAILS_SETTINGS").apply {
+                    putExtra(Intent.EXTRA_COMPONENT_NAME, component.flattenToString())
+                }
+                startActivity(detailsIntent)
+            } else {
+                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            }
+        } catch (_: Exception) {
+            try { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+            catch (_: Exception) { openIntent(Intent(Settings.ACTION_SETTINGS)) }
+        }
+    }
 
     private fun openHomeSettingsFallback() {
         val actions = listOf(
