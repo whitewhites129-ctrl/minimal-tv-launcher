@@ -11,8 +11,8 @@ android {
         applicationId = "br.com.launcher.tv"
         minSdk = 23
         targetSdk = 28
-        versionCode = 6
-        versionName = "0.4.4"
+        versionCode = 7
+        versionName = "0.4.5"
     }
 
     // Keep targetSdk 28 for the launcher compatibility behavior being tested.
