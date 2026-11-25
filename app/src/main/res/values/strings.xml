@@ -1,4 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="accessibility_service_description">Ajuda a manter o Launcher Lite como tela inicial quando a TV tenta voltar ao launcher do fabricante. Só atua quando o Launcher Lite já está definido como padrão.</string>
+    <string name="accessibility_service_description">Compatibilidade da tecla HOME. Pode interceptar a tecla Home do controle e trazer o Launcher Lite de volta quando a TV reabrir o launcher original após iniciar ou sair do modo de espera. Não lê o conteúdo da tela. Requer ativação manual nas configurações de acessibilidade.</string>
 </resources>
