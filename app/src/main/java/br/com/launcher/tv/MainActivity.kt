@@ -247,6 +247,7 @@ class MainActivity : Activity() {
             val logoFrame = FrameLayout(this).apply {
                 clipChildren = false
                 clipToPadding = false
+                background = rounded(Color.rgb(22, 30, 48), 10, Color.rgb(42, 62, 82))
             }
             val logoImage = ImageView(this).apply {
                 scaleType = ImageView.ScaleType.FIT_CENTER
@@ -261,14 +262,14 @@ class MainActivity : Activity() {
                 setTextColor(Color.rgb(112, 197, 230))
                 gravity = Gravity.CENTER
             }
-            val logoParams = FrameLayout.LayoutParams(dp(66), dp(44), Gravity.CENTER)
+            val logoParams = FrameLayout.LayoutParams(dp(62), dp(36), Gravity.CENTER)
             logoFrame.addView(logoImage, logoParams)
-            logoFrame.addView(logoFallback, FrameLayout.LayoutParams(dp(66), dp(44), Gravity.CENTER))
+            logoFrame.addView(logoFallback, FrameLayout.LayoutParams(dp(62), dp(36), Gravity.CENTER))
             ChannelLogos.load(this@MainActivity, name, logoImage) { loaded ->
                 logoImage.visibility = if (loaded) View.VISIBLE else View.GONE
                 logoFallback.visibility = if (loaded) View.GONE else View.VISIBLE
             }
-            tile.addView(logoFrame, LinearLayout.LayoutParams(dp(70), dp(46)))
+            tile.addView(logoFrame, LinearLayout.LayoutParams(dp(66), dp(38)))
             tile.addView(TextView(this).apply {
                 text = name
                 textSize = 12f
