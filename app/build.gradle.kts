@@ -15,6 +15,12 @@ android {
         versionName = "0.4.0"
     }
 
+    // Keep targetSdk 28 for the launcher compatibility behavior being tested.
+    // Suppress only the release lint check that rejects this legacy target.
+    lint {
+        disable += "ExpiredTargetSdkVersion"
+    }
+
     val releaseStoreFile = System.getenv("ANDROID_KEYSTORE_PATH")
     val releaseStorePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
     val releaseKeyAlias = System.getenv("ANDROID_KEY_ALIAS")
