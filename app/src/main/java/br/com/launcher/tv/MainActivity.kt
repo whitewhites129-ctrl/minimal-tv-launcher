@@ -70,6 +70,14 @@ class MainActivity : Activity() {
         }
         refreshClock()
         resetIdleTimer()
+        // Reopen the guided setup once after an app update that changes permission steps.
+        if (prefs.getInt("setup_wizard_version", 0) < 9) {
+            prefs.edit()
+                .putInt("setup_wizard_step", 0)
+                .putBoolean("setup_wizard_finished", false)
+                .putBoolean("setup_wizard_pending", false)
+                .apply()
+        }
         if (!prefs.getBoolean("setup_wizard_finished", false)) {
             window.decorView.postDelayed({ showSetupWizard() }, 500)
         }
@@ -431,8 +439,8 @@ class MainActivity : Activity() {
     private fun openAccessibilitySettings() {
         prefs.edit().putBoolean("setup_wizard_pending", true).apply()
 
-        // Android 11+ can open the details page for this exact accessibility service.
-        // Fall back to the general Accessibility screen on TV firmware that does not support it.
+        // Android expects the service ComponentName in Intent.EXTRA_COMPONENT_NAME.
+        // The detail action is not exposed on every Android TV firmware, so keep a safe fallback.
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
             try {
                 val component = android.content.ComponentName(
@@ -440,18 +448,13 @@ class MainActivity : Activity() {
                     LauncherAccessibilityService::class.java
                 )
                 val detailsIntent = Intent("android.settings.ACCESSIBILITY_DETAILS_SETTINGS").apply {
-                    putExtra(
-                        "android.provider.extra.ACCESSIBILITY_SERVICE_COMPONENT_NAME",
-                        component.flattenToString()
-                    )
+                    putExtra(Intent.EXTRA_COMPONENT_NAME, component.flattenToString())
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
-                if (detailsIntent.resolveActivity(packageManager) != null) {
-                    startActivity(detailsIntent)
-                    return
-                }
+                startActivity(detailsIntent)
+                return
             } catch (_: Exception) {
-                // Some Android TV settings apps do not expose the per-service details page.
+                // Fall back to the standard accessibility services list.
             }
         }
 
@@ -489,6 +492,7 @@ class MainActivity : Activity() {
         val message: String
         val actionLabel: String
         val canSkip = step == 3
+        val canOpenAppInfo = step == 2
 
         when (step) {
             0 -> {
@@ -510,7 +514,7 @@ class MainActivity : Activity() {
                 message = if (isAccessibilityEnabled()) {
                     "Acesso autorizado. O Launcher Lite poderá detectar quando a TV voltar ao launcher original."
                 } else {
-                    "Para TVs que insistem em abrir o Google TV, ative o serviço chamado Launcher Lite na lista de acessibilidade. Não é necessário permitir leitura do conteúdo da tela."
+                    "Ative o serviço Launcher Lite. Se o Android informar que a configuração está restrita, use Informações do app abaixo e procure a opção Permitir configurações restritas. Em algumas versões de Android TV essa opção pode não ser oferecida pelo fabricante."
                 }
                 actionLabel = if (isAccessibilityEnabled()) "Próximo" else "Abrir acessibilidade"
             }
@@ -559,6 +563,7 @@ class MainActivity : Activity() {
             .setNegativeButton(if (step == 0) "Agora não" else "Voltar", null)
             .apply {
                 if (canSkip) setNeutralButton("Pular", null)
+                else if (canOpenAppInfo) setNeutralButton("Informações do app", null)
             }
             .create()
 
@@ -618,6 +623,23 @@ class MainActivity : Activity() {
                     dialog.dismiss()
                     finishSetupWizard()
                 }
+            } else if (canOpenAppInfo) {
+                dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener {
+                    dialog.dismiss()
+                    try {
+                        val appInfo = Intent(
+                            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                            Uri.parse("package:$packageName")
+                        )
+                        startActivity(appInfo)
+                    } catch (_: Exception) {
+                        Toast.makeText(
+                            this,
+                            "Abra Configurações > Aplicativos > Launcher Lite.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
             }
         }
         setupDialog = dialog
@@ -631,7 +653,7 @@ class MainActivity : Activity() {
             .putBoolean("setup_wizard_finished", true)
             .putBoolean("setup_wizard_seen", true)
             .putBoolean("setup_wizard_pending", false)
-            .putInt("setup_wizard_version", 8)
+            .putInt("setup_wizard_version", 9)
             .putInt("setup_wizard_step", 4)
             .apply()
         Toast.makeText(this, "Configuração concluída. Bem-vindo ao Launcher Lite!", Toast.LENGTH_LONG).show()
