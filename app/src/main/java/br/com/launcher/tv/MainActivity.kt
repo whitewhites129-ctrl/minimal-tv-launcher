@@ -247,39 +247,32 @@ class MainActivity : Activity() {
             val logoFrame = FrameLayout(this).apply {
                 clipChildren = false
                 clipToPadding = false
-                background = rounded(Color.rgb(22, 30, 48), 10, Color.rgb(42, 62, 82))
+                background = rounded(Color.rgb(17, 27, 43), 13, Color.rgb(42, 62, 82))
             }
             val logoImage = ImageView(this).apply {
                 scaleType = ImageView.ScaleType.FIT_CENTER
                 adjustViewBounds = true
                 visibility = View.GONE
-                setPadding(dp(3), dp(2), dp(3), dp(2))
-                contentDescription = "Logo de $name"
+                setPadding(dp(5), dp(5), dp(5), dp(5))
+                contentDescription = "Canal $name"
             }
             val logoFallback = TextView(this).apply {
                 text = "▶"
-                textSize = 19f
+                textSize = 30f
                 setTextColor(Color.rgb(112, 197, 230))
                 gravity = Gravity.CENTER
+                contentDescription = "Canal $name"
             }
-            val logoParams = FrameLayout.LayoutParams(dp(62), dp(36), Gravity.CENTER)
+            val logoParams = FrameLayout.LayoutParams(dp(126), dp(76), Gravity.CENTER)
             logoFrame.addView(logoImage, logoParams)
-            logoFrame.addView(logoFallback, FrameLayout.LayoutParams(dp(62), dp(36), Gravity.CENTER))
+            logoFrame.addView(logoFallback, FrameLayout.LayoutParams(dp(126), dp(76), Gravity.CENTER))
             ChannelLogos.load(this@MainActivity, name, logoImage) { loaded ->
                 logoImage.visibility = if (loaded) View.VISIBLE else View.GONE
                 logoFallback.visibility = if (loaded) View.GONE else View.VISIBLE
             }
-            tile.addView(logoFrame, LinearLayout.LayoutParams(dp(66), dp(38)))
-            tile.addView(TextView(this).apply {
-                text = name
-                textSize = 12f
-                setTextColor(Color.WHITE)
-                gravity = Gravity.CENTER
-                maxLines = 2
-                maxWidth = dp(125)
-            })
-            strip.addView(tile, LinearLayout.LayoutParams(dp(142), dp(82)).apply {
-                rightMargin = dp(10); topMargin = dp(2); bottomMargin = dp(5)
+            tile.addView(logoFrame, LinearLayout.LayoutParams(dp(132), dp(82)))
+            strip.addView(tile, LinearLayout.LayoutParams(dp(158), dp(96)).apply {
+                rightMargin = dp(12); topMargin = dp(2); bottomMargin = dp(5)
             })
         }
         scroller.addView(strip, ViewGroup.LayoutParams(-2, -1))
