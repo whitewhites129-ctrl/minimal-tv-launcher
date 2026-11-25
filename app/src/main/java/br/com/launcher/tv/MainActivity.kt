@@ -256,7 +256,7 @@ class MainActivity : Activity() {
                 v.scaleX = if (focused) 1.025f else 1f
                 v.scaleY = if (focused) 1.025f else 1f
             }
-            addView(TextView(this).apply {
+            addView(TextView(this@MainActivity).apply {
                 text = "+"
                 textSize = 48f
                 typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
