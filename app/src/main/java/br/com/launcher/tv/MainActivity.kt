@@ -135,7 +135,8 @@ class MainActivity : Activity() {
         val json = prefs.getString("saimo_favorite_channels", "[]") ?: "[]"
         return try {
             val array = org.json.JSONArray(json)
-            MutableList(array.length()) { i -> array.optString(i).trim() }.filter { it.isNotBlank() }.distinct().toMutableList()
+            MutableList(array.length()) { i -> array.optString(i).trim() }.filter { it.isNotBlank() }
+                .distinctBy { it.lowercase(Locale.ROOT) }.toMutableList()
         } catch (_: Exception) { mutableListOf() }
     }
 
