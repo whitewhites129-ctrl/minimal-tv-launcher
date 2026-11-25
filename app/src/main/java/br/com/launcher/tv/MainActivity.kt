@@ -160,72 +160,37 @@ class MainActivity : Activity() {
     private fun renderChannels() {
         if (!::channelRowContainer.isInitialized) return
         channelRowContainer.removeAllViews()
-        val heading = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        heading.addView(TextView(this).apply {
-            text = "Canais favoritos"
-            textSize = 17f
-            setTextColor(Color.WHITE)
-            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-        }, LinearLayout.LayoutParams(0, -2, 1f))
-        heading.addView(TextView(this).apply {
-            text = "＋ Adicionar canal"
-            textSize = 13f
-            setTextColor(Color.WHITE)
-            gravity = Gravity.CENTER
-            isFocusable = true
-            isFocusableInTouchMode = true
-            isClickable = true
-            minWidth = dp(132)
-            minHeight = dp(42)
-            setPadding(dp(14), dp(8), dp(14), dp(8))
-            background = rounded(Color.rgb(13, 25, 38), 12, Color.rgb(40, 75, 98))
-            setOnFocusChangeListener { v, focused ->
-                v.background = rounded(
-                    if (focused) Color.rgb(18, 67, 105) else Color.rgb(13, 25, 38),
-                    12, if (focused) accent else Color.rgb(40, 75, 98)
-                )
-                v.elevation = if (focused) dp(5).toFloat() else 0f
-            }
-            setOnClickListener { showAddChannelDialog() }
-        })
-        channelRowContainer.addView(heading, LinearLayout.LayoutParams(-1, dp(35)))
+
         val scroller = android.widget.HorizontalScrollView(this).apply {
             isHorizontalScrollBarEnabled = false
             overScrollMode = View.OVER_SCROLL_NEVER
             clipChildren = false
             clipToPadding = false
-            setPadding(dp(4), dp(5), dp(4), dp(7))
+            setPadding(dp(4), dp(8), dp(4), dp(8))
         }
         val strip = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
+            gravity = Gravity.CENTER
             clipChildren = false
             clipToPadding = false
         }
+
         val channels = savedChannels()
         ChannelLogos.ensure(this, channels) {
             if (::channelRowContainer.isInitialized) renderChannels()
         }
-        if (channels.isEmpty()) {
-            strip.addView(TextView(this).apply {
-                text = "Adicione seus canais do Saímo TV para abrir direto por aqui"
-                textSize = 13f
-                setTextColor(Color.rgb(155, 169, 188))
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(dp(4), 0, 0, 0)
-            }, LinearLayout.LayoutParams(-2, dp(76)))
-        }
+
         channels.forEach { name ->
             val tile = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
-                setPadding(dp(12), dp(8), dp(12), dp(8))
-                background = rounded(Color.rgb(14, 23, 34), 15, Color.rgb(42, 62, 82))
+                setPadding(dp(7), dp(6), dp(7), dp(6))
+                background = rounded(Color.rgb(20, 32, 55), 17, Color.rgb(62, 86, 132))
                 isFocusable = true
                 isFocusableInTouchMode = true
                 isClickable = true
-                clipChildren = false
-                clipToPadding = false
+                clipChildren = true
+                clipToPadding = true
                 setOnClickListener { openSaimoChannel(name) }
                 setOnLongClickListener {
                     AlertDialog.Builder(this@MainActivity)
@@ -237,46 +202,74 @@ class MainActivity : Activity() {
                     true
                 }
                 setOnFocusChangeListener { v, focused ->
-                    v.background = rounded(if (focused) Color.rgb(13, 43, 65) else Color.rgb(14, 23, 34),
-                        15, if (focused) accent else Color.rgb(42, 62, 82))
-                    v.scaleX = 1f
-                    v.scaleY = 1f
-                    v.elevation = if (focused) dp(8).toFloat() else 0f
+                    v.background = rounded(
+                        if (focused) Color.rgb(29, 53, 83) else Color.rgb(20, 32, 55),
+                        17,
+                        if (focused) Color.rgb(65, 157, 205) else Color.rgb(62, 86, 132)
+                    )
+                    v.elevation = if (focused) dp(4).toFloat() else 0f
+                    v.scaleX = if (focused) 1.025f else 1f
+                    v.scaleY = if (focused) 1.025f else 1f
                 }
             }
-            val logoFrame = FrameLayout(this).apply {
-                clipChildren = false
-                clipToPadding = false
-                background = rounded(Color.rgb(17, 27, 43), 13, Color.rgb(42, 62, 82))
-            }
+
             val logoImage = ImageView(this).apply {
                 scaleType = ImageView.ScaleType.FIT_CENTER
                 adjustViewBounds = true
                 visibility = View.GONE
-                setPadding(dp(5), dp(5), dp(5), dp(5))
+                setPadding(dp(3), dp(3), dp(3), dp(3))
                 contentDescription = "Canal $name"
             }
             val logoFallback = TextView(this).apply {
                 text = "▶"
-                textSize = 30f
-                setTextColor(Color.rgb(112, 197, 230))
+                textSize = 27f
+                setTextColor(Color.rgb(130, 207, 239))
                 gravity = Gravity.CENTER
                 contentDescription = "Canal $name"
             }
-            val logoParams = FrameLayout.LayoutParams(dp(126), dp(76), Gravity.CENTER)
-            logoFrame.addView(logoImage, logoParams)
-            logoFrame.addView(logoFallback, FrameLayout.LayoutParams(dp(126), dp(76), Gravity.CENTER))
+            tile.addView(logoImage, LinearLayout.LayoutParams(-1, -1))
+            tile.addView(logoFallback, LinearLayout.LayoutParams(-1, -1))
             ChannelLogos.load(this@MainActivity, name, logoImage) { loaded ->
                 logoImage.visibility = if (loaded) View.VISIBLE else View.GONE
                 logoFallback.visibility = if (loaded) View.GONE else View.VISIBLE
             }
-            tile.addView(logoFrame, LinearLayout.LayoutParams(dp(132), dp(82)))
-            strip.addView(tile, LinearLayout.LayoutParams(dp(158), dp(96)).apply {
-                rightMargin = dp(12); topMargin = dp(2); bottomMargin = dp(5)
+            strip.addView(tile, LinearLayout.LayoutParams(dp(132), dp(82)).apply {
+                rightMargin = dp(9)
             })
         }
+
+        val addTile = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            background = rounded(Color.rgb(20, 32, 55), 17, Color.rgb(62, 86, 132))
+            isFocusable = true
+            isFocusableInTouchMode = true
+            isClickable = true
+            setOnClickListener { showAddChannelDialog() }
+            setOnFocusChangeListener { v, focused ->
+                v.background = rounded(
+                    if (focused) Color.rgb(29, 53, 83) else Color.rgb(20, 32, 55),
+                    17,
+                    if (focused) Color.rgb(65, 157, 205) else Color.rgb(62, 86, 132)
+                )
+                v.elevation = if (focused) dp(4).toFloat() else 0f
+                v.scaleX = if (focused) 1.025f else 1f
+                v.scaleY = if (focused) 1.025f else 1f
+            }
+            addView(TextView(this).apply {
+                text = "+"
+                textSize = 48f
+                typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
+                setTextColor(Color.rgb(220, 235, 250))
+                gravity = Gravity.CENTER
+            }, LinearLayout.LayoutParams(-1, -1))
+        }
+        strip.addView(addTile, LinearLayout.LayoutParams(dp(132), dp(82)))
         scroller.addView(strip, ViewGroup.LayoutParams(-2, -1))
-        channelRowContainer.addView(scroller, LinearLayout.LayoutParams(-1, 0, 1f))
+        scroller.post {
+            strip.minimumWidth = (scroller.width - scroller.paddingLeft - scroller.paddingRight).coerceAtLeast(0)
+        }
+        channelRowContainer.addView(scroller, LinearLayout.LayoutParams(-1, -1))
     }
 
     private fun showAddChannelDialog() {
