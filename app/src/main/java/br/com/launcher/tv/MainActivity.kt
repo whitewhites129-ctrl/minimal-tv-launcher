@@ -169,12 +169,23 @@ class MainActivity : Activity() {
         }, LinearLayout.LayoutParams(0, -2, 1f))
         heading.addView(TextView(this).apply {
             text = "＋ Adicionar canal"
-            textSize = 12f
-            setTextColor(Color.rgb(130, 202, 235))
+            textSize = 13f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
             isFocusable = true
+            isFocusableInTouchMode = true
             isClickable = true
-            setPadding(dp(12), dp(7), dp(12), dp(7))
+            minWidth = dp(132)
+            minHeight = dp(42)
+            setPadding(dp(14), dp(8), dp(14), dp(8))
             background = rounded(Color.rgb(13, 25, 38), 12, Color.rgb(40, 75, 98))
+            setOnFocusChangeListener { v, focused ->
+                v.background = rounded(
+                    if (focused) Color.rgb(18, 67, 105) else Color.rgb(13, 25, 38),
+                    12, if (focused) accent else Color.rgb(40, 75, 98)
+                )
+                v.elevation = if (focused) dp(5).toFloat() else 0f
+            }
             setOnClickListener { showAddChannelDialog() }
         })
         channelRowContainer.addView(heading, LinearLayout.LayoutParams(-1, dp(35)))
@@ -254,7 +265,7 @@ class MainActivity : Activity() {
 
     private fun showAddChannelDialog() {
         val field = EditText(this).apply {
-            hint = "Nome exatamente como aparece no Saímo TV"
+            hint = "Nome do canal (ex.: sbt, record, globo)"
             setSingleLine(true)
             setTextColor(Color.WHITE)
             setHintTextColor(Color.GRAY)
@@ -272,7 +283,7 @@ class MainActivity : Activity() {
             .create()
         dialog.setOnShowListener {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                val name = field.text.toString().trim()
+                val name = field.text.toString().trim().uppercase(Locale.ROOT)
                 if (name.isBlank()) {
                     field.error = "Informe o nome do canal"
                     return@setOnClickListener
@@ -293,7 +304,7 @@ class MainActivity : Activity() {
     private fun openSaimoChannel(name: String) {
         try {
             val uri = Uri.Builder().scheme("saimo").authority("canal")
-                .appendQueryParameter("n", name).build()
+                .appendQueryParameter("n", name.trim().uppercase(Locale.ROOT)).build()
             startActivity(Intent(Intent.ACTION_VIEW, uri).setPackage("br.com.saimo.tv"))
         } catch (_: Exception) {
             Toast.makeText(this, "Não foi possível abrir o Saímo TV. Confira se ele está instalado e se o nome do canal está correto.", Toast.LENGTH_LONG).show()
