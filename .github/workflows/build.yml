@@ -6,7 +6,24 @@ on:
 permissions:
   contents: read
 jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Compile debug variant (validation only)
+        run: gradle assembleDebug
   build:
+    needs: validate
     runs-on: ubuntu-latest
     env:
       HAS_SIGNING_KEY: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' && secrets.ANDROID_KEYSTORE_PASSWORD != '' && secrets.ANDROID_KEY_ALIAS != '' && secrets.ANDROID_KEY_PASSWORD != '' }}
@@ -14,7 +31,7 @@ jobs:
       - name: Require the permanent signing key
         if: env.HAS_SIGNING_KEY != 'true'
         run: |
-          echo "::error::Configure the four ANDROID_KEYSTORE_* / ANDROID_KEY_* repository secrets before building. Debug APKs are intentionally disabled to prevent signature changes between updates."
+          echo "::error::Configure all four repository secrets before building a distributable APK. Debug APKs are never published."
           exit 1
       - name: Checkout
         uses: actions/checkout@v4
