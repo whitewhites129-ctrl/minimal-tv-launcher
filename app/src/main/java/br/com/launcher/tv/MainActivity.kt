@@ -3,6 +3,7 @@ package br.com.launcher.tv
 import android.app.Activity
 import android.animation.ObjectAnimator
 import android.content.Intent
+import android.net.Uri
 import android.content.pm.ResolveInfo
 import android.content.pm.PackageManager
 import android.graphics.Color
@@ -18,11 +19,13 @@ import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import android.widget.EditText
 import android.widget.GridLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -39,6 +42,7 @@ class MainActivity : Activity() {
     private lateinit var weatherIcon: TextView
     private lateinit var weatherText: TextView
     private lateinit var appGrid: GridLayout
+    private lateinit var channelRowContainer: LinearLayout
     private lateinit var screenRoot: FrameLayout
     private var notificationPanel: LinearLayout? = null
     private var notificationCount: TextView? = null
@@ -74,6 +78,7 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         LauncherNotificationListener.instance?.refreshFromSystem()
+        if (::channelRowContainer.isInitialized) renderChannels()
         if (::appGrid.isInitialized) {
             val fresh = findApps()
             if (fresh.map { it.activityInfo.packageName } != apps.map { it.activityInfo.packageName }) {
@@ -90,6 +95,7 @@ class MainActivity : Activity() {
             layoutParams = ViewGroup.LayoutParams(-1, -1)
         }
         root.addView(createHeader(), LinearLayout.LayoutParams(-1, dp(104)))
+        root.addView(createChannelRow(), LinearLayout.LayoutParams(-1, dp(142)))
 
         val content = FrameLayout(this)
         val scroll = android.widget.ScrollView(this).apply {
@@ -117,6 +123,161 @@ class MainActivity : Activity() {
         screenRoot.addView(root, FrameLayout.LayoutParams(-1, -1))
         setContentView(screenRoot)
         renderApps()
+    }
+
+
+    private fun savedChannels(): MutableList<String> {
+        val json = prefs.getString("saimo_favorite_channels", "[]") ?: "[]"
+        return try {
+            val array = org.json.JSONArray(json)
+            MutableList(array.length()) { i -> array.optString(i).trim() }.filter { it.isNotBlank() }.distinct().toMutableList()
+        } catch (_: Exception) { mutableListOf() }
+    }
+
+    private fun saveChannels(channels: List<String>) {
+        val array = org.json.JSONArray()
+        channels.distinct().forEach { array.put(it) }
+        prefs.edit().putString("saimo_favorite_channels", array.toString()).apply()
+        if (::channelRowContainer.isInitialized) renderChannels()
+    }
+
+    private fun createChannelRow(): View {
+        channelRowContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, dp(3), 0, dp(8))
+        }
+        return channelRowContainer.also { renderChannels() }
+    }
+
+    private fun renderChannels() {
+        if (!::channelRowContainer.isInitialized) return
+        channelRowContainer.removeAllViews()
+        val heading = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        heading.addView(TextView(this).apply {
+            text = "Canais favoritos"
+            textSize = 17f
+            setTextColor(Color.WHITE)
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        }, LinearLayout.LayoutParams(0, -2, 1f))
+        heading.addView(TextView(this).apply {
+            text = "＋ Adicionar canal"
+            textSize = 12f
+            setTextColor(Color.rgb(130, 202, 235))
+            isFocusable = true
+            isClickable = true
+            setPadding(dp(12), dp(7), dp(12), dp(7))
+            background = rounded(Color.rgb(13, 25, 38), 12, Color.rgb(40, 75, 98))
+            setOnClickListener { showAddChannelDialog() }
+        })
+        channelRowContainer.addView(heading, LinearLayout.LayoutParams(-1, dp(35)))
+        val scroller = android.widget.HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            overScrollMode = View.OVER_SCROLL_NEVER
+        }
+        val strip = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        val channels = savedChannels()
+        if (channels.isEmpty()) {
+            strip.addView(TextView(this).apply {
+                text = "Adicione seus canais do Saímo TV para abrir direto por aqui"
+                textSize = 13f
+                setTextColor(Color.rgb(155, 169, 188))
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(4), 0, 0, 0)
+            }, LinearLayout.LayoutParams(-2, dp(76)))
+        }
+        channels.forEach { name ->
+            val tile = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER
+                setPadding(dp(12), dp(8), dp(12), dp(8))
+                background = rounded(Color.rgb(14, 23, 34), 15, Color.rgb(42, 62, 82))
+                isFocusable = true
+                isClickable = true
+                setOnClickListener { openSaimoChannel(name) }
+                setOnLongClickListener {
+                    AlertDialog.Builder(this@MainActivity)
+                        .setTitle(name)
+                        .setMessage("Remover este canal dos favoritos?")
+                        .setNegativeButton("Cancelar", null)
+                        .setPositiveButton("Remover") { _, _ -> saveChannels(savedChannels().filterNot { it == name }) }
+                        .show()
+                    true
+                }
+                setOnFocusChangeListener { v, focused ->
+                    v.background = rounded(if (focused) Color.rgb(13, 43, 65) else Color.rgb(14, 23, 34),
+                        15, if (focused) accent else Color.rgb(42, 62, 82))
+                    v.scaleX = if (focused) 1.04f else 1f
+                    v.scaleY = if (focused) 1.04f else 1f
+                }
+            }
+            tile.addView(TextView(this).apply {
+                text = "▶"
+                textSize = 19f
+                setTextColor(Color.rgb(112, 197, 230))
+                gravity = Gravity.CENTER
+            })
+            tile.addView(TextView(this).apply {
+                text = name
+                textSize = 12f
+                setTextColor(Color.WHITE)
+                gravity = Gravity.CENTER
+                maxLines = 2
+                maxWidth = dp(125)
+            })
+            strip.addView(tile, LinearLayout.LayoutParams(dp(142), dp(82)).apply {
+                rightMargin = dp(10); topMargin = dp(2); bottomMargin = dp(5)
+            })
+        }
+        scroller.addView(strip, ViewGroup.LayoutParams(-2, -1))
+        channelRowContainer.addView(scroller, LinearLayout.LayoutParams(-1, 0, 1f))
+    }
+
+    private fun showAddChannelDialog() {
+        val field = EditText(this).apply {
+            hint = "Nome exatamente como aparece no Saímo TV"
+            setSingleLine(true)
+            setTextColor(Color.WHITE)
+            setHintTextColor(Color.GRAY)
+        }
+        val box = LinearLayout(this).apply {
+            setPadding(dp(22), dp(8), dp(22), 0)
+            addView(field, LinearLayout.LayoutParams(-1, dp(52)))
+        }
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("Adicionar canal do Saímo")
+            .setMessage("Digite o nome do canal exatamente como aparece na lista do Saímo TV.")
+            .setView(box)
+            .setNegativeButton("Cancelar", null)
+            .setPositiveButton("Salvar", null)
+            .create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val name = field.text.toString().trim()
+                if (name.isBlank()) {
+                    field.error = "Informe o nome do canal"
+                    return@setOnClickListener
+                }
+                val current = savedChannels()
+                if (current.any { it.equals(name, ignoreCase = true) }) {
+                    field.error = "Esse canal já está nos favoritos"
+                    return@setOnClickListener
+                }
+                current.add(name)
+                saveChannels(current)
+                dialog.dismiss()
+            }
+        }
+        dialog.show()
+    }
+
+    private fun openSaimoChannel(name: String) {
+        try {
+            val uri = Uri.Builder().scheme("saimo").authority("canal")
+                .appendQueryParameter("n", name).build()
+            startActivity(Intent(Intent.ACTION_VIEW, uri).setPackage("br.com.saimo.tv"))
+        } catch (_: Exception) {
+            Toast.makeText(this, "Não foi possível abrir o Saímo TV. Confira se ele está instalado e se o nome do canal está correto.", Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun createHeader(): View {
