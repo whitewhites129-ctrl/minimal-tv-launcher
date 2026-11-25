@@ -70,7 +70,9 @@ class MainActivity : Activity() {
         }
         refreshClock()
         resetIdleTimer()
-        if (!prefs.getBoolean("setup_wizard_seen", false)) window.decorView.postDelayed({ showSetupWizard() }, 700)
+        if (!prefs.getBoolean("setup_wizard_seen", false) || prefs.getInt("setup_wizard_version", 0) < 7) {
+            window.decorView.postDelayed({ showSetupWizard() }, 700)
+        }
         clock.postDelayed(object : Runnable {
             override fun run() { refreshClock(); clock.postDelayed(this, 30000) }
         }, 30000)
@@ -87,6 +89,13 @@ class MainActivity : Activity() {
                 apps.clear(); apps.addAll(fresh); restoreOrder(); renderApps()
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (saverView != null) dismissScreenSaver()
+        resetIdleTimer()
     }
 
     private fun createHome() {
@@ -376,54 +385,133 @@ class MainActivity : Activity() {
                 when (which) {
                     0 -> showSetupWizard()
                     1 -> requestDefaultHome()
-                    2 -> openIntent(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-                    3 -> openIntent(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                    2 -> openAccessibilitySettings()
+                    3 -> {
+                        prefs.edit().putBoolean("setup_wizard_pending", true).apply()
+                        openIntent(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                    }
                     4 -> openIntent(Intent(Settings.ACTION_SETTINGS))
                 }
             }.setNegativeButton("Fechar", null).show()
     }
 
     private fun isHomeRoleHeld(): Boolean = try {
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) getSystemService(android.app.role.RoleManager::class.java)?.isRoleHeld(android.app.role.RoleManager.ROLE_HOME) == true
-        else packageManager.resolveActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), PackageManager.MATCH_DEFAULT_ONLY)?.activityInfo?.packageName == packageName
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            getSystemService(android.app.role.RoleManager::class.java)
+                ?.isRoleHeld(android.app.role.RoleManager.ROLE_HOME) == true
+        } else {
+            packageManager.resolveActivity(
+                Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME),
+                PackageManager.MATCH_DEFAULT_ONLY
+            )?.activityInfo?.packageName == packageName
+        }
+    } catch (_: Exception) { false }
+
+    private fun isRegisteredAsHome(): Boolean = try {
+        val homeIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+        packageManager.queryIntentActivities(homeIntent, PackageManager.MATCH_DEFAULT_ONLY)
+            .any { it.activityInfo?.packageName == packageName }
     } catch (_: Exception) { false }
 
     private fun isAccessibilityEnabled(): Boolean {
         val enabled = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: return false
-        return enabled.split(':').any { it.contains("LauncherAccessibilityService", true) }
+        val expected = android.content.ComponentName(this, LauncherAccessibilityService::class.java)
+        return enabled.split(':').any {
+            android.content.ComponentName.unflattenFromString(it) == expected
+        }
+    }
+
+    private fun openAccessibilitySettings() {
+        prefs.edit().putBoolean("setup_wizard_pending", true).apply()
+        openIntent(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+    }
+
+    private fun openHomeSettingsFallback() {
+        val actions = listOf(
+            Settings.ACTION_HOME_SETTINGS,
+            Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS
+        )
+        for (action in actions) {
+            try {
+                val settingsIntent = Intent(action)
+                if (settingsIntent.resolveActivity(packageManager) != null) {
+                    startActivity(settingsIntent)
+                    return
+                }
+            } catch (_: Exception) { }
+        }
+        Toast.makeText(
+            this,
+            "Abra Configurações > Apps > Apps padrão > App de início e selecione Launcher Lite.",
+            Toast.LENGTH_LONG
+        ).show()
     }
 
     private fun showSetupWizard() {
-        val home = if (isHomeRoleHeld()) "Concluído" else "Pendente"
-        val accessibility = if (isAccessibilityEnabled()) "Ativada" else "Opcional — não ativada"
-        val notifications = if (isNotificationAccessEnabled()) "Ativado" else "Opcional — não ativado"
-        val message = "Vamos preparar o Launcher Lite para ser a tela inicial da TV.\n\n1. Launcher padrão: " + home + "\n2. Acessibilidade: " + accessibility + "\n3. Acesso às notificações: " + notifications + "\n\nO Android abrirá as telas oficiais para você confirmar. Acessibilidade e notificações são opcionais."
-        AlertDialog.Builder(this).setTitle("Configuração inicial").setMessage(message)
-            .setItems(arrayOf(if (isHomeRoleHeld()) "✓ Launcher padrão definido" else "1. Definir Launcher Lite como padrão", if (isAccessibilityEnabled()) "✓ Acessibilidade ativada" else "2. Ativar acessibilidade", if (isNotificationAccessEnabled()) "✓ Notificações autorizadas" else "3. Autorizar notificações")) { _, which ->
-                when (which) { 0 -> requestDefaultHome(); 1 -> openIntent(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)); 2 -> openIntent(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
+        val home = when {
+            isHomeRoleHeld() -> "Definido como padrão"
+            isRegisteredAsHome() -> "Disponível para seleção"
+            else -> "O Android ainda não listou este app como tela inicial"
+        }
+        val accessibility = if (isAccessibilityEnabled()) "Ativada — tecla HOME e retorno após standby" else "Não ativada — recomendada para compatibilidade"
+        val notifications = if (isNotificationAccessEnabled()) "Autorizado" else "Opcional — não autorizado"
+        val message = "Vamos configurar o Launcher Lite.\n\n1. Tela inicial do Android: " + home +
+            "\n2. Compatibilidade da tecla HOME: " + accessibility +
+            "\n3. Acesso às notificações: " + notifications +
+            "\n\nPrimeiro defina o Launcher Lite como app de início. Depois ative a acessibilidade para TVs que insistem em voltar ao Google TV. O serviço não lê o conteúdo da tela. Notificações são opcionais."
+        AlertDialog.Builder(this).setTitle("Configuração do Launcher Lite").setMessage(message)
+            .setItems(arrayOf(
+                if (isHomeRoleHeld()) "✓ Launcher Lite já é o padrão" else "1. Definir Launcher Lite como padrão",
+                if (isAccessibilityEnabled()) "✓ Compatibilidade HOME ativada" else "2. Ativar compatibilidade da tecla HOME",
+                if (isNotificationAccessEnabled()) "✓ Notificações autorizadas" else "3. Autorizar notificações (opcional)"
+            )) { _, which ->
+                when (which) {
+                    0 -> requestDefaultHome()
+                    1 -> openAccessibilitySettings()
+                    2 -> {
+                        prefs.edit().putBoolean("setup_wizard_pending", true).apply()
+                        openIntent(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                    }
+                }
             }
-            .setPositiveButton("Verificar novamente") { _, _ ->
-                if (isHomeRoleHeld()) { prefs.edit().putBoolean("setup_wizard_pending", false).putBoolean("setup_wizard_seen", true).apply(); Toast.makeText(this, "Launcher Lite está definido como padrão.", Toast.LENGTH_LONG).show() }
-                else { prefs.edit().putBoolean("setup_wizard_pending", true).apply(); Toast.makeText(this, "Ainda falta definir o Launcher Lite como tela inicial padrão.", Toast.LENGTH_LONG).show() }
-            }.setNeutralButton("Agora não") { _, _ -> prefs.edit().putBoolean("setup_wizard_seen", true).putBoolean("setup_wizard_pending", false).apply() }.show()
+            .setPositiveButton("Verificar configuração") { _, _ ->
+                if (isHomeRoleHeld()) {
+                    prefs.edit().putBoolean("setup_wizard_pending", false)
+                        .putBoolean("setup_wizard_seen", true).putInt("setup_wizard_version", 7).apply()
+                    Toast.makeText(this, "Launcher Lite está definido como tela inicial.", Toast.LENGTH_LONG).show()
+                } else {
+                    prefs.edit().putBoolean("setup_wizard_pending", true).apply()
+                    Toast.makeText(this, "Selecione Launcher Lite na lista de apps de início.", Toast.LENGTH_LONG).show()
+                    openHomeSettingsFallback()
+                }
+            }
+            .setNeutralButton("Agora não") { _, _ ->
+                prefs.edit().putBoolean("setup_wizard_seen", true).putBoolean("setup_wizard_pending", false)
+                    .putInt("setup_wizard_version", 7).apply()
+            }.show()
     }
 
     private fun requestDefaultHome() {
+        prefs.edit().putBoolean("setup_wizard_pending", true).apply()
         try {
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
                 val manager = getSystemService(android.app.role.RoleManager::class.java)
                 if (manager != null && manager.isRoleAvailable(android.app.role.RoleManager.ROLE_HOME)) {
-                    if (manager.isRoleHeld(android.app.role.RoleManager.ROLE_HOME)) Toast.makeText(this, "Launcher Lite já é o padrão.", Toast.LENGTH_LONG).show()
-                    else startActivityForResult(manager.createRequestRoleIntent(android.app.role.RoleManager.ROLE_HOME), 4102)
+                    if (manager.isRoleHeld(android.app.role.RoleManager.ROLE_HOME)) {
+                        prefs.edit().putBoolean("setup_wizard_pending", false).apply()
+                        Toast.makeText(this, "Launcher Lite já é o padrão.", Toast.LENGTH_LONG).show()
+                    } else {
+                        startActivityForResult(
+                            manager.createRequestRoleIntent(android.app.role.RoleManager.ROLE_HOME),
+                            4102
+                        )
+                    }
                     return
                 }
             }
-            val settings = Intent(Settings.ACTION_HOME_SETTINGS)
-            if (settings.resolveActivity(packageManager) != null) startActivity(settings)
-            else startActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME))
+            openHomeSettingsFallback()
         } catch (_: Exception) {
-            try { startActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)) }
-            catch (_: Exception) { Toast.makeText(this, "Vá em Configurações > Apps > Apps padrão > App de início e selecione Launcher Lite.", Toast.LENGTH_LONG).show() }
+            openHomeSettingsFallback()
         }
     }
 
@@ -819,10 +907,13 @@ class MainActivity : Activity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == 4102) {
             if (isHomeRoleHeld()) {
-                prefs.edit().putBoolean("setup_wizard_pending", false).putBoolean("setup_wizard_seen", true).apply()
+                prefs.edit().putBoolean("setup_wizard_pending", false).putBoolean("setup_wizard_seen", true)
+                    .putInt("setup_wizard_version", 7).apply()
                 Toast.makeText(this, "Launcher Lite definido como padrão!", Toast.LENGTH_LONG).show()
             } else {
-                Toast.makeText(this, "A TV não confirmou a seleção. Tente em Apps padrão > App de início.", Toast.LENGTH_LONG).show()
+                prefs.edit().putBoolean("setup_wizard_pending", true).apply()
+                Toast.makeText(this, "Escolha Launcher Lite na tela de apps de início.", Toast.LENGTH_LONG).show()
+                openHomeSettingsFallback()
             }
             return
         }
