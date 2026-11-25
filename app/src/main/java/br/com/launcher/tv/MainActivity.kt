@@ -203,6 +203,9 @@ class MainActivity : Activity() {
             clipToPadding = false
         }
         val channels = savedChannels()
+        ChannelLogos.ensure(this, channels) {
+            if (::channelRowContainer.isInitialized) renderChannels()
+        }
         if (channels.isEmpty()) {
             strip.addView(TextView(this).apply {
                 text = "Adicione seus canais do Saímo TV para abrir direto por aqui"
@@ -241,12 +244,31 @@ class MainActivity : Activity() {
                     v.elevation = if (focused) dp(8).toFloat() else 0f
                 }
             }
-            tile.addView(TextView(this).apply {
+            val logoFrame = FrameLayout(this).apply {
+                clipChildren = false
+                clipToPadding = false
+            }
+            val logoImage = ImageView(this).apply {
+                scaleType = ImageView.ScaleType.FIT_CENTER
+                adjustViewBounds = true
+                visibility = View.GONE
+                setPadding(dp(3), dp(2), dp(3), dp(2))
+                contentDescription = "Logo de $name"
+            }
+            val logoFallback = TextView(this).apply {
                 text = "▶"
                 textSize = 19f
                 setTextColor(Color.rgb(112, 197, 230))
                 gravity = Gravity.CENTER
-            })
+            }
+            val logoParams = FrameLayout.LayoutParams(dp(66), dp(44), Gravity.CENTER)
+            logoFrame.addView(logoImage, logoParams)
+            logoFrame.addView(logoFallback, FrameLayout.LayoutParams(dp(66), dp(44), Gravity.CENTER))
+            ChannelLogos.load(this@MainActivity, name, logoImage) { loaded ->
+                logoImage.visibility = if (loaded) View.VISIBLE else View.GONE
+                logoFallback.visibility = if (loaded) View.GONE else View.VISIBLE
+            }
+            tile.addView(logoFrame, LinearLayout.LayoutParams(dp(70), dp(46)))
             tile.addView(TextView(this).apply {
                 text = name
                 textSize = 12f
@@ -283,7 +305,7 @@ class MainActivity : Activity() {
             .create()
         dialog.setOnShowListener {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                val name = field.text.toString().trim().uppercase(Locale.ROOT)
+                val name = field.text.toString().trim()
                 if (name.isBlank()) {
                     field.error = "Informe o nome do canal"
                     return@setOnClickListener
@@ -304,7 +326,7 @@ class MainActivity : Activity() {
     private fun openSaimoChannel(name: String) {
         try {
             val uri = Uri.Builder().scheme("saimo").authority("canal")
-                .appendQueryParameter("n", name.trim().uppercase(Locale.ROOT)).build()
+                .appendQueryParameter("n", name.trim()).build()
             startActivity(Intent(Intent.ACTION_VIEW, uri).setPackage("br.com.saimo.tv"))
         } catch (_: Exception) {
             Toast.makeText(this, "Não foi possível abrir o Saímo TV. Confira se ele está instalado e se o nome do canal está correto.", Toast.LENGTH_LONG).show()
