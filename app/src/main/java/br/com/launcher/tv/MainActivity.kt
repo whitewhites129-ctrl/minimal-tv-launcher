@@ -385,7 +385,12 @@ class MainActivity : Activity() {
         AlertDialog.Builder(this).setTitle("Configurações")
             .setItems(arrayOf("Assistente de configuração", "Definir Launcher Lite como tela inicial", "Ativar acessibilidade", "Acesso às notificações", "Configurações do Android")) { _, which ->
                 when (which) {
-                    0 -> showSetupWizard()
+                    0 -> {
+                        prefs.edit().putInt("setup_wizard_step", 0)
+                            .putBoolean("setup_wizard_finished", false)
+                            .putBoolean("setup_wizard_pending", true).apply()
+                        showSetupWizard()
+                    }
                     1 -> requestDefaultHome()
                     2 -> openAccessibilitySettings()
                     3 -> {
