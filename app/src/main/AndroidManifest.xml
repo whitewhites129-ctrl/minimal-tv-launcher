@@ -32,7 +32,7 @@
         </receiver>
         <service
             android:name=".LauncherAccessibilityService"
-            android:label="Compatibilidade da tecla HOME"
+            android:label="Launcher Lite"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
             android:exported="true">
             <intent-filter>
