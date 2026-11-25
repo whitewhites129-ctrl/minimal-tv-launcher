@@ -71,7 +71,7 @@ class MainActivity : Activity() {
         refreshClock()
         resetIdleTimer()
         // Reopen the guided setup once after an app update that changes permission steps.
-        if (prefs.getInt("setup_wizard_version", 0) < 9) {
+        if (prefs.getInt("setup_wizard_version", 0) < 10) {
             prefs.edit()
                 .putInt("setup_wizard_step", 0)
                 .putBoolean("setup_wizard_finished", false)
@@ -391,7 +391,7 @@ class MainActivity : Activity() {
 
     private fun showLauncherSettingsDialog() {
         AlertDialog.Builder(this).setTitle("Configurações")
-            .setItems(arrayOf("Assistente de configuração", "Definir Launcher Lite como tela inicial", "Ativar acessibilidade", "Acesso às notificações", "Configurações do Android")) { _, which ->
+            .setItems(arrayOf("Assistente de configuração", "Definir Launcher Lite como tela inicial", "Acesso às notificações", "Configurações do Android")) { _, which ->
                 when (which) {
                     0 -> {
                         prefs.edit().putInt("setup_wizard_step", 0)
@@ -400,12 +400,11 @@ class MainActivity : Activity() {
                         showSetupWizard()
                     }
                     1 -> requestDefaultHome()
-                    2 -> openAccessibilitySettings()
-                    3 -> {
+                    2 -> {
                         prefs.edit().putBoolean("setup_wizard_pending", true).apply()
                         openIntent(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                     }
-                    4 -> openIntent(Intent(Settings.ACTION_SETTINGS))
+                    3 -> openIntent(Intent(Settings.ACTION_SETTINGS))
                 }
             }.setNegativeButton("Fechar", null).show()
     }
@@ -427,39 +426,6 @@ class MainActivity : Activity() {
         packageManager.queryIntentActivities(homeIntent, PackageManager.MATCH_DEFAULT_ONLY)
             .any { it.activityInfo?.packageName == packageName }
     } catch (_: Exception) { false }
-
-    private fun isAccessibilityEnabled(): Boolean {
-        val enabled = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: return false
-        val expected = android.content.ComponentName(this, LauncherAccessibilityService::class.java)
-        return enabled.split(':').any {
-            android.content.ComponentName.unflattenFromString(it) == expected
-        }
-    }
-
-    private fun openAccessibilitySettings() {
-        prefs.edit().putBoolean("setup_wizard_pending", true).apply()
-
-        // Android expects the service ComponentName in Intent.EXTRA_COMPONENT_NAME.
-        // The detail action is not exposed on every Android TV firmware, so keep a safe fallback.
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-            try {
-                val component = android.content.ComponentName(
-                    this,
-                    LauncherAccessibilityService::class.java
-                )
-                val detailsIntent = Intent("android.settings.ACCESSIBILITY_DETAILS_SETTINGS").apply {
-                    putExtra(Intent.EXTRA_COMPONENT_NAME, component.flattenToString())
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                startActivity(detailsIntent)
-                return
-            } catch (_: Exception) {
-                // Fall back to the standard accessibility services list.
-            }
-        }
-
-        openIntent(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-    }
 
     private fun openHomeSettingsFallback() {
         val actions = listOf(
@@ -487,21 +453,20 @@ class MainActivity : Activity() {
     private fun showSetupWizard() {
         if (isFinishing || setupDialog?.isShowing == true) return
 
-        val step = prefs.getInt("setup_wizard_step", 0).coerceIn(0, 4)
+        val step = prefs.getInt("setup_wizard_step", 0).coerceIn(0, 2)
         val title: String
         val message: String
         val actionLabel: String
-        val canSkip = step == 3
-        val canOpenAppInfo = step == 2
+        val canSkip = step == 2
 
         when (step) {
             0 -> {
                 title = "Bem-vindo ao Launcher Lite"
-                message = "Vamos preparar sua TV em poucos passos. Você vai escolher o Launcher Lite como tela inicial e autorizar os acessos opcionais. O Google TV original continuará instalado."
+                message = "Vamos preparar sua TV em poucos passos. Você vai escolher o Launcher Lite como tela inicial. O Google TV original continuará instalado; o acesso às notificações é opcional."
                 actionLabel = "Começar"
             }
             1 -> {
-                title = "1 de 3 — Tela inicial padrão"
+                title = "1 de 2 — Tela inicial padrão"
                 message = if (isHomeRoleHeld()) {
                     "Perfeito! O Launcher Lite já está definido como tela inicial padrão."
                 } else {
@@ -510,16 +475,7 @@ class MainActivity : Activity() {
                 actionLabel = if (isHomeRoleHeld()) "Próximo" else "Escolher Launcher Lite"
             }
             2 -> {
-                title = "2 de 3 — Acesso do Launcher Lite"
-                message = if (isAccessibilityEnabled()) {
-                    "Acesso autorizado. O Launcher Lite poderá detectar quando a TV voltar ao launcher original."
-                } else {
-                    "Ative o serviço Launcher Lite. Se o Android informar que a configuração está restrita, use Informações do app abaixo e procure a opção Permitir configurações restritas. Em algumas versões de Android TV essa opção pode não ser oferecida pelo fabricante."
-                }
-                actionLabel = if (isAccessibilityEnabled()) "Próximo" else "Abrir acessibilidade"
-            }
-            3 -> {
-                title = "3 de 3 — Notificações (opcional)"
+                title = "2 de 2 — Notificações (opcional)"
                 message = if (isNotificationAccessEnabled()) {
                     "Acesso às notificações autorizado."
                 } else {
@@ -563,7 +519,7 @@ class MainActivity : Activity() {
             .setNegativeButton(if (step == 0) "Agora não" else "Voltar", null)
             .apply {
                 if (canSkip) setNeutralButton("Pular", null)
-                else if (canOpenAppInfo) setNeutralButton("Informações do app", null)
+                
             }
             .create()
 
@@ -586,17 +542,6 @@ class MainActivity : Activity() {
                         }
                     }
                     2 -> {
-                        if (isAccessibilityEnabled()) {
-                            prefs.edit().putInt("setup_wizard_step", 3).apply()
-                            dialog.dismiss()
-                            showSetupWizard()
-                        } else {
-                            prefs.edit().putBoolean("setup_wizard_pending", true).apply()
-                            dialog.dismiss()
-                            openAccessibilitySettings()
-                        }
-                    }
-                    3 -> {
                         if (isNotificationAccessEnabled()) {
                             dialog.dismiss()
                             finishSetupWizard()
@@ -623,23 +568,6 @@ class MainActivity : Activity() {
                     dialog.dismiss()
                     finishSetupWizard()
                 }
-            } else if (canOpenAppInfo) {
-                dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener {
-                    dialog.dismiss()
-                    try {
-                        val appInfo = Intent(
-                            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                            Uri.parse("package:$packageName")
-                        )
-                        startActivity(appInfo)
-                    } catch (_: Exception) {
-                        Toast.makeText(
-                            this,
-                            "Abra Configurações > Aplicativos > Launcher Lite.",
-                            Toast.LENGTH_LONG
-                        ).show()
-                    }
-                }
             }
         }
         setupDialog = dialog
@@ -653,7 +581,7 @@ class MainActivity : Activity() {
             .putBoolean("setup_wizard_finished", true)
             .putBoolean("setup_wizard_seen", true)
             .putBoolean("setup_wizard_pending", false)
-            .putInt("setup_wizard_version", 9)
+            .putInt("setup_wizard_version", 10)
             .putInt("setup_wizard_step", 4)
             .apply()
         Toast.makeText(this, "Configuração concluída. Bem-vindo ao Launcher Lite!", Toast.LENGTH_LONG).show()
