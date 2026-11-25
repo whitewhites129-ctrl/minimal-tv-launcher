@@ -70,7 +70,7 @@ class MainActivity : Activity() {
         }
         refreshClock()
         resetIdleTimer()
-        // Reopen the guided setup once after an app update that changes permission steps.
+        // Reopen the guided setup once after an app update that changes setup steps.
         if (prefs.getInt("setup_wizard_version", 0) < 10) {
             prefs.edit()
                 .putInt("setup_wizard_step", 0)
@@ -497,7 +497,7 @@ class MainActivity : Activity() {
         val progress = TextView(this).apply {
             text = when (step) {
                 0 -> "CONFIGURAÇÃO INICIAL"
-                else -> "ETAPA $step DE 3"
+                else -> "ETAPA $step DE 2"
             }
             textSize = 12f
             letterSpacing = 0.12f
