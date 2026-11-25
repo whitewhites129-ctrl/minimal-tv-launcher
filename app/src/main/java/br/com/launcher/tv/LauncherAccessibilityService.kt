@@ -1,35 +1,68 @@
 package br.com.launcher.tv
 
 import android.accessibilityservice.AccessibilityService
-import android.app.role.RoleManager
-import android.os.Build
 import android.os.SystemClock
+import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
 
 /**
- * Optional compatibility helper for TV firmware that returns to its own launcher.
- * It only redirects HOME when Launcher Lite is already the selected HOME role.
+ * Compatibility bridge for TV firmware that ignores or overrides a third-party HOME app.
+ *
+ * This service deliberately does not retrieve window contents. It only:
+ *  - intercepts the remote's HOME key when Android grants key-event filtering;
+ *  - detects when a known stock TV launcher returns to the foreground (for example after
+ *    wake/standby) and brings this launcher forward again.
+ *
+ * The user must explicitly enable this service in Android Accessibility settings.
  */
 class LauncherAccessibilityService : AccessibilityService() {
-    private var lastRedirect = 0L
+    private var lastLaunch = 0L
+
+    private val stockLauncherPackages = setOf(
+        "com.google.android.tvlauncher",
+        "com.google.android.apps.tv.launcherx"
+    )
+
+    override fun onKeyEvent(event: KeyEvent): Boolean {
+        if (event.keyCode != KeyEvent.KEYCODE_HOME) return false
+
+        // Consume both halves of the HOME press so the stock launcher does not race us.
+        if (event.action == KeyEvent.ACTION_UP) {
+            bringLauncherToFront()
+        }
+        return true
+    }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
+        if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
+            event?.eventType != AccessibilityEvent.TYPE_WINDOWS_CHANGED) return
+
         val foreground = event.packageName?.toString() ?: return
-        if (foreground != "com.google.android.tvlauncher" &&
-            foreground != "com.google.android.googlequicksearchbox") return
+        if (foreground !in stockLauncherPackages) return
 
+        // Also covers firmware that reopens its own home screen after boot or standby.
+        bringLauncherToFront()
+    }
+
+    private fun bringLauncherToFront() {
         val now = SystemClock.elapsedRealtime()
-        if (now - lastRedirect < 2500L) return
+        if (now - lastLaunch < 1800L) return
 
-        val isDefaultHome = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            getSystemService(RoleManager::class.java)?.isRoleHeld(RoleManager.ROLE_HOME) == true
-        } else {
-            false
+        val launch = android.content.Intent(this, MainActivity::class.java).apply {
+            action = android.content.Intent.ACTION_MAIN
+            addCategory(android.content.Intent.CATEGORY_HOME)
+            addFlags(
+                android.content.Intent.FLAG_ACTIVITY_NEW_TASK or
+                    android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                    android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP
+            )
         }
-        if (isDefaultHome) {
-            lastRedirect = now
-            performGlobalAction(GLOBAL_ACTION_HOME)
+
+        try {
+            startActivity(launch)
+            lastLaunch = now
+        } catch (_: Exception) {
+            // Some TV firmwares block activity starts from accessibility services.
         }
     }
 
