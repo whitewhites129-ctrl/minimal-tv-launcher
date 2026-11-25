@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_service_description">Ajuda a manter o Launcher Lite como tela inicial quando a TV tenta voltar ao launcher do fabricante. Só atua quando o Launcher Lite já está definido como padrão.</string>
+</resources>
