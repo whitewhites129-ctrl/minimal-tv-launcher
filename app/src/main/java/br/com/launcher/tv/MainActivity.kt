@@ -368,6 +368,44 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun showLauncherSettingsDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("Configurações")
+            .setItems(arrayOf("Definir Launcher Lite como tela inicial", "Configurações do Android")) { _, which ->
+                when (which) {
+                    0 -> requestDefaultHome()
+                    1 -> openIntent(Intent(Settings.ACTION_SETTINGS))
+                }
+            }
+            .setNegativeButton("Fechar", null)
+            .show()
+    }
+
+    private fun requestDefaultHome() {
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                val roleManager = getSystemService(android.app.role.RoleManager::class.java)
+                if (roleManager != null &&
+                    roleManager.isRoleAvailable(android.app.role.RoleManager.ROLE_HOME) &&
+                    !roleManager.isRoleHeld(android.app.role.RoleManager.ROLE_HOME)
+                ) {
+                    @Suppress("DEPRECATION")
+                    startActivityForResult(
+                        roleManager.createRequestRoleIntent(android.app.role.RoleManager.ROLE_HOME), 4102
+                    )
+                    return
+                }
+            }
+            startActivity(Intent(Settings.ACTION_HOME_SETTINGS))
+        } catch (_: Exception) {
+            try {
+                startActivity(Intent(Settings.ACTION_SETTINGS))
+            } catch (_: Exception) {
+                Toast.makeText(this, "Abra as configurações do Android e escolha Launcher Lite como app de início.", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
     private fun createHeader(): View {
         val header = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -423,7 +461,7 @@ class MainActivity : Activity() {
         weatherPill.addView(weatherText)
         actions.addView(headerAction(R.drawable.ic_mic_modern, "Pesquisa por voz") { openVoice() })
         actions.addView(headerAction(R.drawable.ic_notifications_modern, "Notificações") { openNotificationsPanel() })
-        actions.addView(headerAction(R.drawable.ic_settings_modern, "Configurações") { openIntent(Intent(Settings.ACTION_SETTINGS)) })
+        actions.addView(headerAction(R.drawable.ic_settings_modern, "Configurações") { showLauncherSettingsDialog() })
         val centeredHeader = FrameLayout(this).apply { clipChildren = false; clipToPadding = false }
         centeredHeader.addView(left, FrameLayout.LayoutParams(dp(230), -1, Gravity.LEFT or Gravity.CENTER_VERTICAL))
         centeredHeader.addView(weatherPill, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
