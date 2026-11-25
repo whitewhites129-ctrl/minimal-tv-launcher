@@ -86,10 +86,9 @@ object ChannelLogos {
         val app = context.applicationContext
         val current = savedUrls(app)
         val now = System.currentTimeMillis()
-        val hasKnownUrls = channelNames.all { current.optString(normalize(it)).startsWith("https://") }
+        val allProcessed = channelNames.all { current.has(normalize(it)) }
         val lastSync = prefs(app).getLong(SYNC_KEY, 0L)
-        if (hasKnownUrls && now - lastSync < MAX_CACHE_AGE) return
-        if (now - lastSync < MAX_CACHE_AGE && channelNames.none { current.optString(normalize(it)).isBlank() }) return
+        if (allProcessed && now - lastSync < MAX_CACHE_AGE) return
         if (!syncing.compareAndSet(false, true)) return
 
         worker.execute {
@@ -149,9 +148,14 @@ object ChannelLogos {
                         id = idByName[compact] ?: manualId(compact)
                     }
                     val url = id?.let { logoById[it] }
-                    if (!url.isNullOrBlank() && updated.optString(key) != url) {
-                        updated.put(key, url)
-                        changed = true
+                    if (!url.isNullOrBlank()) {
+                        if (updated.optString(key) != url) {
+                            updated.put(key, url)
+                            changed = true
+                        }
+                    } else if (!updated.has(key)) {
+                        // Lembra a tentativa sem resultado para não baixar os catálogos a cada abertura.
+                        updated.put(key, "")
                     }
                 }
                 prefs(app).edit()
