@@ -195,10 +195,18 @@ class MainActivity : Activity() {
                 setOnLongClickListener {
                     AlertDialog.Builder(this@MainActivity)
                         .setTitle(name)
-                        .setMessage("Remover este canal dos favoritos?")
-                        .setNegativeButton("Cancelar", null)
-                        .setPositiveButton("Remover") { _, _ -> saveChannels(savedChannels().filterNot { it == name }) }
-                        .show()
+                        .setItems(arrayOf("Editar nome", "Remover dos favoritos", "Cancelar")) { dialog, which ->
+                            when (which) {
+                                0 -> showEditChannelDialog(name)
+                                1 -> AlertDialog.Builder(this@MainActivity)
+                                    .setTitle("Remover canal")
+                                    .setMessage("Remover $name dos favoritos?")
+                                    .setNegativeButton("Cancelar", null)
+                                    .setPositiveButton("Remover") { _, _ ->
+                                        saveChannels(savedChannels().filterNot { it == name })
+                                    }.show()
+                            }
+                        }.show()
                     true
                 }
                 setOnFocusChangeListener { v, focused ->
@@ -304,6 +312,46 @@ class MainActivity : Activity() {
                 }
                 current.add(name)
                 saveChannels(current)
+                dialog.dismiss()
+            }
+        }
+        dialog.show()
+    }
+
+    private fun showEditChannelDialog(oldName: String) {
+        val field = EditText(this).apply {
+            setText(oldName)
+            setSelection(text.length)
+            hint = "Nome do canal no Saímo TV"
+            setSingleLine(true)
+            setTextColor(Color.WHITE)
+            setHintTextColor(Color.GRAY)
+        }
+        val box = LinearLayout(this).apply {
+            setPadding(dp(22), dp(8), dp(22), 0)
+            addView(field, LinearLayout.LayoutParams(-1, dp(52)))
+        }
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("Editar canal")
+            .setMessage("Altere o nome usado para localizar e abrir o canal no Saímo TV.")
+            .setView(box)
+            .setNegativeButton("Cancelar", null)
+            .setPositiveButton("Salvar", null)
+            .create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val newName = field.text.toString().trim()
+                if (newName.isBlank()) {
+                    field.error = "Informe o nome do canal"
+                    return@setOnClickListener
+                }
+                val current = savedChannels()
+                if (current.any { it != oldName && it.equals(newName, ignoreCase = true) }) {
+                    field.error = "Esse canal já está nos favoritos"
+                    return@setOnClickListener
+                }
+                val updated = current.map { if (it == oldName) newName else it }
+                saveChannels(updated)
                 dialog.dismiss()
             }
         }
@@ -1123,22 +1171,109 @@ class MainActivity : Activity() {
     private fun addAllAppsCard(width: Int, height: Int, row: Int, col: Int) {
         val card = createCard()
         card.addView(TextView(this).apply {
-            text = "＋"
-            textSize = 66f
+            text = "▦"
+            textSize = 62f
             setTextColor(Color.WHITE)
             gravity = Gravity.CENTER
             typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
-        }, LinearLayout.LayoutParams(dp(76), dp(76)))
-        card.addView(TextView(this).apply {
-            text = "Todos os apps"
-            textSize = 14f
+            contentDescription = "Grade de aplicativos"
+        }, LinearLayout.LayoutParams(dp(82), dp(82)))
+        card.contentDescription = "Abrir gaveta com todos os aplicativos"
+        card.setOnClickListener { showAppDrawer() }
+        addGridCard(card, width, height, row, col)
+    }
+
+    private fun showAppDrawer() {
+        val dialog = android.app.Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(42), dp(28), dp(42), dp(24))
+            setBackgroundColor(Color.rgb(8, 13, 24))
+        }
+        val top = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        top.addView(TextView(this).apply {
+            text = "Aplicativos"
+            textSize = 27f
+            setTextColor(Color.WHITE)
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        }, LinearLayout.LayoutParams(0, dp(54), 1f))
+        top.addView(TextView(this).apply {
+            text = "✕"
+            textSize = 26f
             setTextColor(Color.WHITE)
             gravity = Gravity.CENTER
-            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-        })
-        card.contentDescription = "Abrir todos os aplicativos"
-        card.setOnClickListener { showingAll = true; renderApps() }
-        addGridCard(card, width, height, row, col)
+            isFocusable = true
+            setPadding(dp(16), dp(8), dp(16), dp(8))
+            contentDescription = "Fechar gaveta"
+            setOnClickListener { dialog.dismiss() }
+        }, LinearLayout.LayoutParams(dp(58), dp(54)))
+        root.addView(top)
+
+        val scroll = android.widget.ScrollView(this).apply {
+            isFillViewport = true
+            overScrollMode = View.OVER_SCROLL_NEVER
+        }
+        val grid = GridLayout(this).apply {
+            columnCount = 5
+            useDefaultMargins = false
+            alignmentMode = GridLayout.ALIGN_BOUNDS
+            setPadding(dp(4), dp(16), dp(4), dp(16))
+        }
+        val screenWidth = (resources.displayMetrics.widthPixels / resources.displayMetrics.density).toInt()
+        val cellWidth = dp(((screenWidth - 120) / 5).coerceIn(118, 220))
+        apps.forEachIndexed { index, app ->
+            val item = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER
+                setPadding(dp(9), dp(10), dp(9), dp(8))
+                background = rounded(Color.rgb(19, 29, 48), 17, Color.rgb(47, 65, 94))
+                isFocusable = true
+                isClickable = true
+                setOnFocusChangeListener { v, focused ->
+                    v.background = rounded(
+                        if (focused) Color.rgb(31, 55, 84) else Color.rgb(19, 29, 48),
+                        17,
+                        if (focused) accent else Color.rgb(47, 65, 94)
+                    )
+                    v.scaleX = if (focused) 1.04f else 1f
+                    v.scaleY = if (focused) 1.04f else 1f
+                }
+                setOnClickListener { dialog.dismiss(); launch(app) }
+                contentDescription = app.loadLabel(packageManager).toString()
+            }
+            val icon = ImageView(this).apply {
+                setImageDrawable(app.loadIcon(packageManager))
+                scaleType = ImageView.ScaleType.FIT_CENTER
+            }
+            item.addView(icon, LinearLayout.LayoutParams(dp(62), dp(62)))
+            item.addView(TextView(this).apply {
+                text = app.loadLabel(packageManager).toString()
+                textSize = 12f
+                setTextColor(Color.WHITE)
+                gravity = Gravity.CENTER
+                maxLines = 2
+                ellipsize = android.text.TextUtils.TruncateAt.END
+                setPadding(0, dp(5), 0, 0)
+            }, LinearLayout.LayoutParams(-1, dp(36)))
+            val params = GridLayout.LayoutParams(
+                GridLayout.spec(index / 5), GridLayout.spec(index % 5)
+            )
+            params.width = cellWidth
+            params.height = dp(112)
+            params.setMargins(dp(8), dp(8), dp(8), dp(8))
+            grid.addView(item, params)
+        }
+        scroll.addView(grid, ViewGroup.LayoutParams(-1, -2))
+        root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
+        dialog.setContentView(root)
+        dialog.window?.setLayout(-1, -1)
+        dialog.setOnDismissListener { resetIdleTimer() }
+        dialog.show()
+        dialog.window?.setLayout(-1, -1)
+        grid.post { grid.getChildAt(0)?.requestFocus() }
     }
 
     private fun addGridCard(view: View, width: Int, height: Int, row: Int, col: Int) {
@@ -1344,7 +1479,6 @@ class MainActivity : Activity() {
         if (quick != null) { screenRoot.removeView(quick); return }
         if (weatherPage != null) { screenRoot.removeView(weatherPage); weatherPage = null; return }
         if (organizing) { stopOrganizingUi(); organizing = false; moving = -1; restoreOrder(); renderApps(); return }
-        if (showingAll) { showingAll = false; renderApps(); return }
         super.onBackPressed()
     }
 
