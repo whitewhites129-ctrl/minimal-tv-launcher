@@ -1379,6 +1379,20 @@ class MainActivity : Activity() {
         }.start()
     }
 
+    private fun homeApps(): List<ResolveInfo> {
+        val saved = prefs.getString("home_apps_order", null) ?: return apps.take(9)
+        val byPackage = apps.associateBy { it.activityInfo.packageName }
+        return saved.split("|").filter { it.isNotBlank() }.mapNotNull { byPackage[it] }.take(9)
+    }
+
+    private fun saveHomeApps(items: List<ResolveInfo>) {
+        prefs.edit().putString(
+            "home_apps_order",
+            items.distinctBy { it.activityInfo.packageName }
+                .joinToString("|") { it.activityInfo.packageName }
+        ).apply()
+    }
+
     private fun renderApps(focus: Int = 0) {
         appGrid.removeAllViews()
         appGrid.columnCount = 5
@@ -1387,20 +1401,14 @@ class MainActivity : Activity() {
         val horizontalMargins = dp(18) * 5
         val tileWidth = dp(((contentWidth - horizontalMargins) / 5).coerceIn(118, 220))
         val tileHeight = (tileWidth * 0.62f).toInt().coerceAtLeast(dp(76))
-        val visible = if (showingAll) apps.toList() else apps.take(if (apps.size > 10) 9 else 10)
-        if (showingAll) {
-            visible.forEachIndexed { index, app ->
-                addAppCard(app, index, tileWidth, tileHeight, index / 5, index % 5)
-            }
-        } else {
-            visible.take(5).forEachIndexed { index, app ->
-                addAppCard(app, index, tileWidth, tileHeight, 0, index)
-            }
-            visible.drop(5).take(5).forEachIndexed { index, app ->
-                addAppCard(app, index + 5, tileWidth, tileHeight, 1, index)
-            }
-            if (apps.size > 10) addAllAppsCard(tileWidth, tileHeight, 1, 4)
+        val visible = homeApps()
+        visible.take(5).forEachIndexed { index, app ->
+            addAppCard(app, index, tileWidth, tileHeight, 0, index)
         }
+        visible.drop(5).take(4).forEachIndexed { index, app ->
+            addAppCard(app, index + 5, tileWidth, tileHeight, 1, index)
+        }
+        addAllAppsCard(tileWidth, tileHeight, 1, 4)
         if (appGrid.childCount > 0) {
             val actual = focus.coerceIn(0, appGrid.childCount - 1)
             appGrid.post { appGrid.getChildAt(actual)?.requestFocus() }
@@ -1511,15 +1519,47 @@ class MainActivity : Activity() {
     }
 
     private fun addAllAppsCard(width: Int, height: Int, row: Int, col: Int) {
-        val card = createCard()
+        val card = createCard().apply {
+            setPadding(dp(8), dp(7), dp(8), dp(7))
+            background = rounded(Color.rgb(12, 29, 43), 20, Color.rgb(39, 111, 145))
+        }
+        val glyph = GridLayout(this).apply {
+            columnCount = 3
+            rowCount = 3
+            useDefaultMargins = false
+            alignmentMode = GridLayout.ALIGN_BOUNDS
+            isFocusable = false
+        }
+        repeat(9) {
+            val dot = View(this).apply {
+                background = rounded(
+                    if (it == 4) Color.rgb(108, 211, 244) else Color.rgb(221, 239, 250),
+                    5,
+                    Color.TRANSPARENT
+                )
+            }
+            val params = GridLayout.LayoutParams(
+                GridLayout.spec(it / 3), GridLayout.spec(it % 3)
+            ).apply {
+                width = dp(12); height = dp(12)
+                setMargins(dp(3), dp(3), dp(3), dp(3))
+            }
+            glyph.addView(dot, params)
+        }
+        val glyphHolder = FrameLayout(this).apply {
+            background = rounded(Color.rgb(18, 54, 76), 17, Color.rgb(48, 126, 159))
+            addView(glyph, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
+        }
+        card.addView(glyphHolder, LinearLayout.LayoutParams(dp(58), dp(58)))
         card.addView(TextView(this).apply {
-            text = "▦"
-            textSize = 62f
-            setTextColor(Color.WHITE)
+            text = "Todos os apps"
+            textSize = 11f
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            setTextColor(Color.rgb(226, 241, 250))
             gravity = Gravity.CENTER
-            typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
-            contentDescription = "Grade de aplicativos"
-        }, LinearLayout.LayoutParams(dp(82), dp(82)))
+            maxLines = 1
+            setPadding(0, dp(5), 0, 0)
+        }, LinearLayout.LayoutParams(-1, -2))
         card.contentDescription = "Abrir gaveta com todos os aplicativos"
         card.setOnClickListener { showAppDrawer() }
         addGridCard(card, width, height, row, col)
@@ -1529,83 +1569,136 @@ class MainActivity : Activity() {
         val dialog = android.app.Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(42), dp(28), dp(42), dp(24))
-            setBackgroundColor(Color.rgb(8, 13, 24))
+            setPadding(dp(30), dp(22), dp(30), dp(18))
+            setBackgroundColor(Color.rgb(7, 12, 21))
         }
         val top = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-        top.addView(TextView(this).apply {
+        val titleBlock = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        titleBlock.addView(TextView(this).apply {
             text = "Aplicativos"
             textSize = 27f
             setTextColor(Color.WHITE)
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-        }, LinearLayout.LayoutParams(0, dp(54), 1f))
+        })
+        titleBlock.addView(TextView(this).apply {
+            text = "Escolha um app ou segure OK para fixar na tela inicial"
+            textSize = 12f
+            setTextColor(Color.rgb(153, 174, 198))
+            setPadding(0, dp(3), 0, 0)
+        })
+        top.addView(titleBlock, LinearLayout.LayoutParams(0, dp(58), 1f))
         top.addView(TextView(this).apply {
             text = "✕"
-            textSize = 26f
+            textSize = 23f
             setTextColor(Color.WHITE)
             gravity = Gravity.CENTER
             isFocusable = true
-            setPadding(dp(16), dp(8), dp(16), dp(8))
+            isClickable = true
+            background = rounded(Color.rgb(21, 31, 45), 15, Color.rgb(52, 69, 91))
             contentDescription = "Fechar gaveta"
             setOnClickListener { dialog.dismiss() }
-        }, LinearLayout.LayoutParams(dp(58), dp(54)))
+        }, LinearLayout.LayoutParams(dp(50), dp(46)))
         root.addView(top)
 
         val scroll = android.widget.ScrollView(this).apply {
             isFillViewport = true
+            clipToPadding = false
             overScrollMode = View.OVER_SCROLL_NEVER
+            setPadding(0, dp(12), 0, dp(8))
         }
         val grid = GridLayout(this).apply {
             columnCount = 5
             useDefaultMargins = false
             alignmentMode = GridLayout.ALIGN_BOUNDS
-            setPadding(dp(4), dp(16), dp(4), dp(16))
+            clipChildren = false
+            clipToPadding = false
         }
-        val screenWidth = (resources.displayMetrics.widthPixels / resources.displayMetrics.density).toInt()
-        val cellWidth = dp(((screenWidth - 120) / 5).coerceIn(118, 220))
         apps.forEachIndexed { index, app ->
+            val packageName = app.activityInfo.packageName
+            val pinned = homeApps().any { it.activityInfo.packageName == packageName }
             val item = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
-                setPadding(dp(9), dp(10), dp(9), dp(8))
-                background = rounded(Color.rgb(19, 29, 48), 17, Color.rgb(47, 65, 94))
+                setPadding(dp(7), dp(9), dp(7), dp(7))
+                background = rounded(Color.rgb(16, 25, 39), 17,
+                    if (pinned) Color.rgb(48, 123, 157) else Color.rgb(39, 54, 75))
                 isFocusable = true
+                isFocusableInTouchMode = true
                 isClickable = true
                 setOnFocusChangeListener { v, focused ->
                     v.background = rounded(
-                        if (focused) Color.rgb(31, 55, 84) else Color.rgb(19, 29, 48),
+                        if (focused) Color.rgb(27, 48, 70) else Color.rgb(16, 25, 39),
                         17,
-                        if (focused) accent else Color.rgb(47, 65, 94)
+                        if (focused) accent else if (pinned) Color.rgb(48, 123, 157) else Color.rgb(39, 54, 75)
                     )
-                    v.scaleX = if (focused) 1.04f else 1f
-                    v.scaleY = if (focused) 1.04f else 1f
+                    v.scaleX = if (focused) 1.035f else 1f
+                    v.scaleY = if (focused) 1.035f else 1f
                 }
                 setOnClickListener { dialog.dismiss(); launch(app) }
-                contentDescription = app.loadLabel(packageManager).toString()
+                setOnLongClickListener {
+                    val current = homeApps().toMutableList()
+                    val alreadyPinned = current.any { it.activityInfo.packageName == packageName }
+                    val action = if (alreadyPinned) "Remover da tela inicial" else "Adicionar à tela inicial"
+                    AlertDialog.Builder(this@MainActivity)
+                        .setTitle(app.loadLabel(packageManager).toString())
+                        .setItems(arrayOf(action, "Cancelar")) { _, which ->
+                            if (which == 0) {
+                                if (alreadyPinned) {
+                                    current.removeAll { it.activityInfo.packageName == packageName }
+                                    saveHomeApps(current)
+                                    Toast.makeText(this@MainActivity, "App removido da tela inicial", Toast.LENGTH_SHORT).show()
+                                } else if (current.size >= 9) {
+                                    Toast.makeText(this@MainActivity, "A tela inicial comporta até 9 aplicativos fixados", Toast.LENGTH_LONG).show()
+                                } else {
+                                    current.add(app)
+                                    saveHomeApps(current)
+                                    Toast.makeText(this@MainActivity, "App adicionado à tela inicial", Toast.LENGTH_SHORT).show()
+                                }
+                                renderApps()
+                                dialog.dismiss()
+                            }
+                        }.show()
+                    true
+                }
+                contentDescription = app.loadLabel(packageManager).toString() +
+                    if (pinned) ", fixado na tela inicial" else ", não fixado"
             }
             val icon = ImageView(this).apply {
                 setImageDrawable(app.loadIcon(packageManager))
                 scaleType = ImageView.ScaleType.FIT_CENTER
             }
-            item.addView(icon, LinearLayout.LayoutParams(dp(62), dp(62)))
+            item.addView(icon, LinearLayout.LayoutParams(dp(58), dp(58)))
             item.addView(TextView(this).apply {
                 text = app.loadLabel(packageManager).toString()
-                textSize = 12f
+                textSize = 11f
                 setTextColor(Color.WHITE)
                 gravity = Gravity.CENTER
                 maxLines = 2
                 ellipsize = android.text.TextUtils.TruncateAt.END
                 setPadding(0, dp(5), 0, 0)
-            }, LinearLayout.LayoutParams(-1, dp(36)))
+            }, LinearLayout.LayoutParams(-1, dp(34)))
+            if (pinned) {
+                item.addView(TextView(this).apply {
+                    text = "NA HOME"
+                    textSize = 8f
+                    letterSpacing = 0.08f
+                    setTextColor(Color.rgb(126, 213, 245))
+                    gravity = Gravity.CENTER
+                }, LinearLayout.LayoutParams(-1, dp(12)))
+            }
             val params = GridLayout.LayoutParams(
-                GridLayout.spec(index / 5), GridLayout.spec(index % 5)
-            )
-            params.width = cellWidth
-            params.height = dp(112)
-            params.setMargins(dp(8), dp(8), dp(8), dp(8))
+                GridLayout.spec(index / 5),
+                GridLayout.spec(index % 5, 1f)
+            ).apply {
+                width = 0
+                height = dp(116)
+                setMargins(dp(5), dp(5), dp(5), dp(5))
+            }
             grid.addView(item, params)
         }
         scroll.addView(grid, ViewGroup.LayoutParams(-1, -2))
