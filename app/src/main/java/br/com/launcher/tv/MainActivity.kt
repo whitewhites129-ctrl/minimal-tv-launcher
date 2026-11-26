@@ -10,6 +10,8 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.os.SystemClock
+import android.util.Log
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
@@ -26,6 +28,8 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import android.app.AlertDialog
+import br.com.launcher.tv.core.HomeRoleController
+import br.com.launcher.tv.core.LauncherLifecycleCoordinator
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -34,6 +38,9 @@ import java.util.Date
 import java.util.Locale
 
 class MainActivity : Activity() {
+    private val homeRoleController by lazy { HomeRoleController(this) }
+    private val lifecycleCoordinator = LauncherLifecycleCoordinator()
+    private val lifecycleLogTag = "LauncherLite.Lifecycle"
     private val accent = Color.rgb(24, 142, 184)
     private val apps = mutableListOf<ResolveInfo>()
     private val prefs by lazy { getSharedPreferences("launcher_v2", MODE_PRIVATE) }
@@ -60,6 +67,7 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        lifecycleCoordinator.onCreated(SystemClock.elapsedRealtime())
         window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_FULLSCREEN or
             View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
         apps.addAll(findApps())
@@ -86,8 +94,15 @@ class MainActivity : Activity() {
         }, 30000)
     }
 
+    override fun onStart() {
+        super.onStart()
+        lifecycleCoordinator.onStarted(SystemClock.elapsedRealtime())
+    }
+
     override fun onResume() {
         super.onResume()
+        val lifecycle = lifecycleCoordinator.onResumed(SystemClock.elapsedRealtime())
+        Log.d(lifecycleLogTag, "resumed; pauseGapMs=${lifecycle.lastResumeGapMs}, count=${lifecycle.resumeCount}")
         LauncherNotificationListener.instance?.refreshFromSystem()
         if (::channelRowContainer.isInitialized) renderChannels()
         if (prefs.getBoolean("setup_wizard_pending", false) || !prefs.getBoolean("setup_wizard_finished", false)) {
@@ -99,6 +114,21 @@ class MainActivity : Activity() {
                 apps.clear(); apps.addAll(fresh); restoreOrder(); renderApps()
             }
         }
+    }
+
+    override fun onPause() {
+        lifecycleCoordinator.onPaused(SystemClock.elapsedRealtime())
+        super.onPause()
+    }
+
+    override fun onStop() {
+        lifecycleCoordinator.onStopped(SystemClock.elapsedRealtime())
+        super.onStop()
+    }
+
+    override fun onDestroy() {
+        lifecycleCoordinator.onDestroyed(SystemClock.elapsedRealtime())
+        super.onDestroy()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -410,17 +440,8 @@ class MainActivity : Activity() {
             }.setNegativeButton("Fechar", null).show()
     }
 
-    private fun isHomeRoleHeld(): Boolean = try {
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-            getSystemService(android.app.role.RoleManager::class.java)
-                ?.isRoleHeld(android.app.role.RoleManager.ROLE_HOME) == true
-        } else {
-            packageManager.resolveActivity(
-                Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME),
-                PackageManager.MATCH_DEFAULT_ONLY
-            )?.activityInfo?.packageName == packageName
-        }
-    } catch (_: Exception) { false }
+    private fun isHomeRoleHeld(): Boolean =
+        homeRoleController.snapshot().isHeldByThisApp
 
     private fun isRegisteredAsHome(): Boolean = try {
         val homeIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
