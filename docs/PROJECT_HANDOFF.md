@@ -161,6 +161,16 @@ Não confiar cegamente no estado de build registrado neste documento: consultar 
 
 ## 11. Histórico de atualizações
 
+### 2026-11-26 — Experimento: prioridade do filtro HOME elevada
+- Evidência do Realme Stick: `cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME` retornou `com.google.android.apps.tv.launcherx/.home.HomeActivity`, apesar de `cmd role get-role-holders android.app.role.HOME` ter indicado `br.com.launcher.tv` em consulta anterior.
+- `cmd package query-activities ... CATEGORY_HOME` listou cinco candidatos: Google TV prioridade 2; Recovery prioridade 1; Launcher Lite prioridade 0; Monet prioridade 0; FallbackHome prioridade -1000.
+- Alteração experimental: prioridade do intent-filter HOME da MainActivity elevada de 2 para 10 em `app/src/main/AndroidManifest.xml`, acima do valor observado no Google TV. Outros filtros e componentes não foram alterados.
+- Commit: `b848df534db99b032540c4dc1836031f71e48e57`.
+- Hipótese a testar: o Package Manager pode passar a resolver Launcher Lite como HOME após instalar o APK. Isso ainda não está comprovado; prioridade de filtro pode não sobrepor a seleção/role HOME ou lógica OEM.
+- Riscos/limites: não desativar Google TV nem Monet; não alterar BootReceiver, AccessibilityService, foco, HOME key ou painel OEM nesta experiência. A mudança pode não afetar o comportamento do firmware.
+- Estado: alteração commitada; build CI, instalação e teste real no Realme Stick pendentes. Após build, validar primeiro a resolução de HOME com `cmd package resolve-activity` e a lista de candidatos; depois fazer cold boot e verificar se Google TV ainda aparece antes. Sucesso de build não equivale a correção funcional.
+
+
 ### 2026-11-26 — Instrumentação para diagnosticar a abertura da Google TV no boot
 - Problema: no boot a Google TV aparece primeiro e, alguns segundos depois, a Launcher Lite abre via `BOOT_COMPLETED`. Não é possível executar ADB durante a janela curta porque a depuração ainda não está disponível.
 - Auditoria: `BootReceiver` enviava um `PendingIntent` para abrir MainActivity, mas descartava silenciosamente todas as exceções e não registrava recebimento do broadcast nem tentativa/resultado do envio.
