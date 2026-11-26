@@ -50,6 +50,7 @@ class MainActivity : Activity() {
     private lateinit var weatherText: TextView
     private lateinit var appGrid: GridLayout
     private lateinit var channelRowContainer: LinearLayout
+    private var lastRenderedChannels: List<String>? = null
     private lateinit var screenRoot: FrameLayout
     private var notificationPanel: LinearLayout? = null
     private var notificationCount: TextView? = null
@@ -208,8 +209,11 @@ class MainActivity : Activity() {
         return channelRowContainer.also { renderChannels() }
     }
 
-    private fun renderChannels() {
+    private fun renderChannels(force: Boolean = false) {
         if (!::channelRowContainer.isInitialized) return
+        val channels = savedChannels()
+        if (!force && channels == lastRenderedChannels) return
+        lastRenderedChannels = channels.toList()
         channelRowContainer.removeAllViews()
 
         val scroller = android.widget.HorizontalScrollView(this).apply {
@@ -226,9 +230,8 @@ class MainActivity : Activity() {
             clipToPadding = false
         }
 
-        val channels = savedChannels()
         ChannelLogos.ensure(this, channels) {
-            if (::channelRowContainer.isInitialized) renderChannels()
+            if (::channelRowContainer.isInitialized) renderChannels(force = true)
         }
 
         channels.forEach { name ->
