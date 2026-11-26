@@ -2,15 +2,15 @@ package br.com.launcher.tv
 
 import android.accessibilityservice.AccessibilityService
 import android.util.Log
+import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
 import br.com.launcher.tv.core.HomeRoleController
 
 /**
- * Optional diagnostic observer only.
+ * Experimental diagnostic observer.
  *
- * Accessibility window events also occur while Android System UI, quick
- * settings and OEM side panels are opening. This service deliberately never
- * starts MainActivity or tries to reclaim foreground focus.
+ * Key events are logged and always returned to the system. This service does
+ * not launch activities, consume HOME, or reclaim foreground focus.
  */
 class LauncherAccessibilityService : AccessibilityService() {
 
@@ -30,6 +30,11 @@ class LauncherAccessibilityService : AccessibilityService() {
         ) {
             Log.d(TAG, "Observed window transition: $packageName (no foreground action)")
         }
+    }
+
+    override fun onKeyEvent(event: KeyEvent): Boolean {
+        Log.i(TAG, "Key event observed: action=${event.action}, keyCode=${event.keyCode}, repeat=${event.repeatCount}; passing through")
+        return false
     }
 
     override fun onInterrupt() {
