@@ -161,6 +161,13 @@ Não confiar cegamente no estado de build registrado neste documento: consultar 
 
 ## 11. Histórico de atualizações
 
+### 2026-11-26 — Artefato baixado e inspecionado localmente
+- Baixado o artefato GitHub Actions `minimal-tv-launcher-apk` (artifact ID `15083062311`) e extraído o ZIP.
+- ZIP continha `app-release.apk`; tamanho do APK: 703.020 bytes.
+- SHA-256 do APK: `e893dd463d830dc422a44df304a4e05627301c90776aff9c82c7321a136ec8bc`.
+- O APK contém `classes.dex`, `AndroidManifest.xml`, recursos e bloco de assinatura; a verificação básica com `jarsigner` identificou certificado com validade até 2054-04-12. Essa verificação não substitui `apksigner verify` nem a instalação no dispositivo.
+- Ainda não houve instalação nem teste funcional no Realme Stick. Não considerar release aprovada até concluir esses testes.
+
 ### 2026-11-26 — Atualização: build concluído e artefato publicado
 - Workflow run `45745487684` terminou com sucesso; validação e build concluídos.
 - APK release assinado publicado no artefato `minimal-tv-launcher-apk` (ID `15083062311`, ZIP 695.533 bytes; SHA-256 registrado na seção de builds).
