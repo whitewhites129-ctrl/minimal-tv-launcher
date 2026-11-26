@@ -161,6 +161,12 @@ Não confiar cegamente no estado de build registrado neste documento: consultar 
 
 ## 11. Histórico de atualizações
 
+### 2026-11-26 — Retorno inicial do usuário: Voltar na raiz
+- Usuário instalou o APK do commit `a1964d5262dd3e2132edaa14d8ac7b2c35fb8ace` (workflow run `45751771780`, conclusão success).
+- Feedback: “Parece que funcionou”, após testar Voltar repetidamente na tela inicial.
+- Estado: validação inicial positiva, ainda não considerada regressão completa aprovada. Pendentes: testar Voltar dentro de aplicativos, HOME, engrenagem/painel OEM e retorno à Launcher.
+
+
 ### 2026-11-26 — Correção do botão Voltar na raiz da Launcher
 - Relato confirmado no Realme Stick: HOME abre a Launcher Lite, mas pressionar Voltar repetidamente na tela inicial encerra a Launcher e expõe a Google TV.
 - Auditoria do método `MainActivity.onBackPressed()`: os painéis internos já tinham tratamento próprio, mas o fluxo final chamava `super.onBackPressed()`, permitindo que a Activity raiz fosse finalizada.
