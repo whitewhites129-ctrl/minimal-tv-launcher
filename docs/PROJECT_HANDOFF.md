@@ -281,3 +281,11 @@ Não confiar cegamente no estado de build registrado neste documento: consultar 
 - Essa alteração não desativa o modo de espera quando outro aplicativo está em primeiro plano e não modifica o painel OEM, a tecla Power, nem configurações globais do firmware.
 - Commit: `bc0c83795fe3a7035a1deab4a7eb0d89b9065510`.
 - Validação pendente: novo workflow, instalação/atualização no Realme Stick e teste real por período superior ao tempo de ativação do protetor de tela + tempo em que antes desligava. Build verde não prova que a política de energia OEM foi superada.
+
+
+### 2026-11-26 — Diagnóstico persistente da entrega de LOCKED_BOOT_COMPLETED
+- Alterado `BootReceiver.kt`: ao receber `LOCKED_BOOT_COMPLETED`, grava um marcador booleano e o tempo desde o boot em SharedPreferences do armazenamento protegido pelo dispositivo (`createDeviceProtectedStorageContext`). Não inicia Activity, não acessa preferências protegidas por credencial e não altera HOME ou serviços.
+- Ao receber `BOOT_COMPLETED`, lê o marcador e registra em `LauncherLite.Boot` se o evento antecipado foi efetivamente recebido e em que tempo. Isso torna o diagnóstico recuperável depois que o ADB voltar, sem depender de capturar a janela curta de boot.
+- O caminho de abertura atual via `BOOT_COMPLETED` permanece inalterado. Nenhuma tentativa de abrir UI durante Direct Boot foi adicionada.
+- Commit: `4bce209a2751b3ccc674688f0d439ccafdde2725`.
+- Estado: alteração commitada; build CI e instalação/teste no Realme Stick pendentes. Após instalar, fazer um único desligamento completo e consultar o logcat `LauncherLite.Boot`. Se `lockedBootReceived=false`, o receiver não registrou o evento; se `true`, teremos confirmação persistente e horário para decidir o próximo experimento. Isso ainda não corrige a transição visual do Google TV.
