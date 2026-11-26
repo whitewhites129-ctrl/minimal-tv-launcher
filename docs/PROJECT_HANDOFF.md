@@ -161,6 +161,14 @@ Não confiar cegamente no estado de build registrado neste documento: consultar 
 
 ## 11. Histórico de atualizações
 
+### 2026-11-26 — Teste de inicialização a frio no Realme Stick
+- Usuário desligou completamente o Realme Stick, aguardou cerca de 20 segundos sem alimentação e ligou novamente.
+- Resultado observado: Google TV apareceu primeiro; alguns segundos depois, Launcher Lite abriu automaticamente.
+- Interpretação: o caminho de inicialização via `BOOT_COMPLETED` está produzindo a abertura da Launcher Lite, mas não impede que a Google TV seja exibida antes. A experiência ainda apresenta uma troca visual/demora após o boot.
+- Estado: teste de inicialização automática parcialmente positivo; não considerar inicialização direta/sem transição aprovada. Próxima investigação: verificar seleção/resolução do HOME padrão no firmware e ordem dos eventos de boot antes de alterar o mecanismo. Manter Google TV instalado e habilitado; não introduzir loops ou tentativas repetidas de roubar o foreground.
+- Nenhuma alteração funcional ou novo APK nesta etapa.
+
+
 ### 2026-11-26 — Retorno positivo nos testes de regressão iniciais
 - Usuário informou: “Até agora tudo certo”, após a instalação do APK com a correção de Voltar na raiz.
 - Interpretação registrada: não foram relatados novos problemas nos testes realizados até o momento, incluindo o comportamento de navegação que motivou a correção e as verificações seguintes solicitadas (retorno de aplicativos e painel OEM/engrenagem).
