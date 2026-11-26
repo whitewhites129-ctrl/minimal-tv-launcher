@@ -78,6 +78,7 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Log.i("LauncherLite.Boot", "MainActivity onCreate; intentAction=${intent?.action}; categories=${intent?.categories}; elapsedRealtime=${SystemClock.elapsedRealtime()}")
         val now = SystemClock.elapsedRealtime()
         lifecycleCoordinator.onCreated(now)
         logSessionEvent(sessionStateMachine.accept(LauncherSessionEvent.Created(now)))
