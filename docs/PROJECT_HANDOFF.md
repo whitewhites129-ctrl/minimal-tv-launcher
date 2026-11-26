@@ -117,11 +117,14 @@ Princípios obrigatórios:
 - Branch: `rebuild/product-grade-foundation`
 - Commit: `d5c2da5bb03b24f65a6e5d3203dcaa1155402b83`
 - URL: https://github.com/whitewhites129-ctrl/minimal-tv-launcher/actions/runs/45745487684
-- Último estado observado: job `validate` concluído com sucesso; job `build` estava em andamento, na preparação do Gradle.
+- Resultado final consultado: workflow concluído com sucesso; jobs `validate` e `build` concluídos com sucesso.
+- O job construiu APK debug de validação e APK release assinado.
+- Artefato publicado: `minimal-tv-launcher-apk`, ID `15083062311`, tamanho ZIP `695533` bytes, SHA-256 `56da6e4df66378e40be8545ace7042ae22bfc0d61c1d563fd78c2e954deaef7b`, expira em 2027-02-24.
+- A etapa `Upload test APK` apareceu como skipped; a etapa `Upload signed APK` concluiu com sucesso. O artefato publicado é o pacote de APK assinado.
+- Isso confirma build/empacotamento, não instalação nem teste funcional no Realme Stick.
 - Etapas esperadas no job build: compilar APK debug de validação Realme, publicar artefato de teste, preparar assinatura persistente, compilar APK release assinado e publicar artefato assinado.
-- No momento da última consulta, a API de artefatos retornou zero artefatos porque a execução ainda não havia terminado.
-- Não afirmar que APK foi produzido, publicado, instalado ou testado até consultar o resultado final e os artefatos.
-- Release ainda não está aprovada.
+- O APK publicado ainda precisa ser baixado, inspecionado e instalado/testado no dispositivo real.
+- Não tratar sucesso do workflow como aprovação funcional de release.
 
 ## 8. Próximos passos técnicos
 
@@ -157,6 +160,12 @@ Começar dizendo:
 Não confiar cegamente no estado de build registrado neste documento: consultar GitHub novamente, pois a execução pode ter terminado após a última atualização.
 
 ## 11. Histórico de atualizações
+
+### 2026-11-26 — Atualização: build concluído e artefato publicado
+- Workflow run `45745487684` terminou com sucesso; validação e build concluídos.
+- APK release assinado publicado no artefato `minimal-tv-launcher-apk` (ID `15083062311`, ZIP 695.533 bytes; SHA-256 registrado na seção de builds).
+- APK ainda não foi instalado nem testado no Realme Stick; não é release funcional aprovada.
+- Registro atualizado para refletir o resultado final do workflow.
 
 ### 2026-11-26 — Registro inicial criado
 - Criado este documento de continuidade a pedido do usuário.
