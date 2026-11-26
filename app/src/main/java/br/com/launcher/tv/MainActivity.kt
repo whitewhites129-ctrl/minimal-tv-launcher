@@ -34,6 +34,8 @@ import br.com.launcher.tv.data.AppCatalogRepository
 import br.com.launcher.tv.data.FavoriteChannelsRepository
 import br.com.launcher.tv.ui.FocusAnchor
 import br.com.launcher.tv.ui.FocusRestorationCoordinator
+import br.com.launcher.tv.navigation.LauncherSessionEvent
+import br.com.launcher.tv.navigation.LauncherSessionStateMachine
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -44,6 +46,7 @@ import java.util.Locale
 class MainActivity : Activity() {
     private val homeRoleController by lazy { HomeRoleController(this) }
     private val lifecycleCoordinator = LauncherLifecycleCoordinator()
+    private val sessionStateMachine = LauncherSessionStateMachine()
     private val focusRestorationCoordinator = FocusRestorationCoordinator()
     private val lifecycleLogTag = "LauncherLite.Lifecycle"
     private val appCatalog by lazy { AppCatalogRepository(this) }
@@ -75,7 +78,9 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        lifecycleCoordinator.onCreated(SystemClock.elapsedRealtime())
+        val now = SystemClock.elapsedRealtime()
+        lifecycleCoordinator.onCreated(now)
+        logSessionEvent(sessionStateMachine.accept(LauncherSessionEvent.Created(now)))
         window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_FULLSCREEN or
             View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
         apps.addAll(findApps())
@@ -104,12 +109,16 @@ class MainActivity : Activity() {
 
     override fun onStart() {
         super.onStart()
-        lifecycleCoordinator.onStarted(SystemClock.elapsedRealtime())
+        val now = SystemClock.elapsedRealtime()
+        lifecycleCoordinator.onStarted(now)
+        logSessionEvent(sessionStateMachine.accept(LauncherSessionEvent.Started(now)))
     }
 
     override fun onResume() {
         super.onResume()
-        val lifecycle = lifecycleCoordinator.onResumed(SystemClock.elapsedRealtime())
+        val now = SystemClock.elapsedRealtime()
+        val lifecycle = lifecycleCoordinator.onResumed(now)
+        logSessionEvent(sessionStateMachine.accept(LauncherSessionEvent.Resumed(now)))
         Log.d(lifecycleLogTag, "resumed; pauseGapMs=${lifecycle.lastResumeGapMs}, count=${lifecycle.resumeCount}")
         LauncherNotificationListener.instance?.refreshFromSystem()
         if (::channelRowContainer.isInitialized) renderChannels()
@@ -126,22 +135,30 @@ class MainActivity : Activity() {
 
     override fun onPause() {
         focusRestorationCoordinator.capture(window.decorView.findFocus())
-        lifecycleCoordinator.onPaused(SystemClock.elapsedRealtime())
+        val now = SystemClock.elapsedRealtime()
+        lifecycleCoordinator.onPaused(now)
+        logSessionEvent(sessionStateMachine.accept(LauncherSessionEvent.Paused(now)))
         super.onPause()
     }
 
     override fun onStop() {
-        lifecycleCoordinator.onStopped(SystemClock.elapsedRealtime())
+        val now = SystemClock.elapsedRealtime()
+        lifecycleCoordinator.onStopped(now)
+        logSessionEvent(sessionStateMachine.accept(LauncherSessionEvent.Stopped(now)))
         super.onStop()
     }
 
     override fun onDestroy() {
-        lifecycleCoordinator.onDestroyed(SystemClock.elapsedRealtime())
+        val now = SystemClock.elapsedRealtime()
+        lifecycleCoordinator.onDestroyed(now)
+        logSessionEvent(sessionStateMachine.accept(LauncherSessionEvent.Destroyed(now)))
         super.onDestroy()
     }
 
     override fun onWindowFocusChanged(hasWindowFocus: Boolean) {
         super.onWindowFocusChanged(hasWindowFocus)
+        val focusAt = SystemClock.elapsedRealtime()
+        logSessionEvent(sessionStateMachine.accept(LauncherSessionEvent.WindowFocusChanged(hasWindowFocus, focusAt)))
         if (!::screenRoot.isInitialized) return
 
         if (!hasWindowFocus) {
@@ -156,6 +173,10 @@ class MainActivity : Activity() {
         if (!overlayIsOpen) {
             screenRoot.post { focusRestorationCoordinator.restore(screenRoot) }
         }
+    }
+
+    private fun logSessionEvent(snapshot: br.com.launcher.tv.navigation.LauncherSessionSnapshot) {
+        Log.d("LauncherLite.Session", "stage=${snapshot.activityStage}; windowFocus=${snapshot.windowFocus}; interactive=${snapshot.isInteractive}; transitions=${snapshot.transitionCount}; at=${snapshot.lastTransitionAtMs}")
     }
 
     override fun onNewIntent(intent: Intent) {
