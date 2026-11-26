@@ -23,8 +23,8 @@ class AppCatalogRepository(context: Context) {
 
         queries.forEach { query ->
             @Suppress("DEPRECATION")
-            packageManager.queryIntentActivities(query, PackageManager.MATCH_ALL).forEach { info ->
-                val packageName = info.activityInfo?.packageName ?: return@forEach
+            packageManager.queryIntentActivities(query, PackageManager.MATCH_ALL).forEach appLoop@{ info ->
+                val packageName = info.activityInfo?.packageName ?: return@appLoop
                 if (packageName != appContext.packageName) {
                     byPackage.putIfAbsent(packageName, info)
                 }
