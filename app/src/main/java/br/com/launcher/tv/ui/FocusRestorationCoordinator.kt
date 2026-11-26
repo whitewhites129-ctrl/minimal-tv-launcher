@@ -25,7 +25,7 @@ class FocusRestorationCoordinator {
     fun rememberedKey(): String? = rememberedAnchor
 
     private fun findTarget(view: View, anchor: String): View? {
-        if (view.getTag(R.id.focus_anchor) == anchor &&
+        if ((view.tag as? FocusAnchor)?.key == anchor &&
             view.isShown && view.isFocusable && view.isEnabled
         ) {
             return view
