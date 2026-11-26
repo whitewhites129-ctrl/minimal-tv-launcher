@@ -229,6 +229,7 @@ class MainActivity : Activity() {
         if (!::channelRowContainer.isInitialized) return
         val channels = savedChannels()
         if (!force && channels == lastRenderedChannels) return
+        focusRestorationCoordinator.capture(window.decorView.findFocus())
         lastRenderedChannels = channels.toList()
         channelRowContainer.removeAllViews()
 
@@ -350,6 +351,9 @@ class MainActivity : Activity() {
             strip.minimumWidth = (scroller.width - scroller.paddingLeft - scroller.paddingRight).coerceAtLeast(0)
         }
         channelRowContainer.addView(scroller, LinearLayout.LayoutParams(-1, -1))
+        if (::screenRoot.isInitialized && hasWindowFocus()) {
+            channelRowContainer.post { focusRestorationCoordinator.restore(screenRoot) }
+        }
     }
 
     private fun showAddChannelDialog() {
