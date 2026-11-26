@@ -141,7 +141,18 @@ class MainActivity : Activity() {
 
     override fun onWindowFocusChanged(hasWindowFocus: Boolean) {
         super.onWindowFocusChanged(hasWindowFocus)
-        if (hasWindowFocus && ::screenRoot.isInitialized) {
+        if (!::screenRoot.isInitialized) return
+
+        if (!hasWindowFocus) {
+            focusRestorationCoordinator.capture(window.decorView.findFocus())
+            return
+        }
+
+        val overlayIsOpen = saverView != null || weatherPage != null ||
+            screenRoot.findViewWithTag<View>("notification_panel_root") != null ||
+            screenRoot.findViewWithTag<View>("quick_panel") != null
+
+        if (!overlayIsOpen) {
             screenRoot.post { focusRestorationCoordinator.restore(screenRoot) }
         }
     }
