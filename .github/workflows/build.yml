@@ -2,7 +2,7 @@ name: Build Android APK
 on:
   workflow_dispatch:
   push:
-    branches: [ "main", "rebuild/launcher-core-v1" ]
+    branches: [ "main", "rebuild/launcher-core-v1", "rebuild/product-grade-foundation" ]
 permissions:
   contents: read
 jobs:
@@ -46,7 +46,7 @@ jobs:
           gradle-version: '8.9'
 
       - name: Build debug APK for Realme Stick validation
-        if: github.ref == 'refs/heads/rebuild/launcher-core-v1'
+        if: github.ref == 'refs/heads/rebuild/product-grade-foundation'
         run: gradle assembleDebug
       - name: Upload test APK
         if: github.ref == 'refs/heads/rebuild/launcher-core-v1'
