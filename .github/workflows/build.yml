@@ -21,24 +21,13 @@ jobs:
         with:
           gradle-version: '8.9'
       - name: Compile debug variant (validation only)
-        run: gradle assembleDebug
+        run: gradle assembleDebug testDebugUnitTest
   build:
     needs: validate
     runs-on: ubuntu-latest
     env:
       HAS_SIGNING_KEY: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' && secrets.ANDROID_KEYSTORE_PASSWORD != '' && secrets.ANDROID_KEY_ALIAS != '' && secrets.ANDROID_KEY_PASSWORD != '' }}
     steps:
-
-      - name: Build debug APK for Realme Stick validation
-        if: github.ref == 'refs/heads/rebuild/launcher-core-v1'
-        run: gradle assembleDebug
-      - name: Upload test APK
-        if: github.ref == 'refs/heads/rebuild/launcher-core-v1'
-        uses: actions/upload-artifact@v4
-        with:
-          name: launcher-lite-rebuild-debug
-          path: app/build/outputs/apk/debug/*.apk
-          if-no-files-found: error
 
       - name: Explain why release is skipped
         if: env.HAS_SIGNING_KEY != 'true'
@@ -55,6 +44,18 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+
+      - name: Build debug APK for Realme Stick validation
+        if: github.ref == 'refs/heads/rebuild/launcher-core-v1'
+        run: gradle assembleDebug
+      - name: Upload test APK
+        if: github.ref == 'refs/heads/rebuild/launcher-core-v1'
+        uses: actions/upload-artifact@v4
+        with:
+          name: launcher-lite-rebuild-debug
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+
       - name: Prepare persistent signing key
         if: env.HAS_SIGNING_KEY == 'true'
         env:
