@@ -260,3 +260,15 @@ Não confiar cegamente no estado de build registrado neste documento: consultar 
 - Consolidado o histórico conhecido do projeto, requisitos do Realme Stick, diagnóstico HOME/acessibilidade, branches, commits e workflows.
 - Estado de execução anotado conforme última consulta: run `45745487684`, validação concluída com sucesso e job de build em andamento.
 - Nenhuma alteração funcional adicional foi feita nesta entrada.
+
+
+### 2026-11-26 — Gaveta moderna e fixação de aplicativos na tela inicial
+- Pedido: modernizar o ícone de grade/gaveta na home, corrigir cartões da gaveta que excediam a largura e permitir mover/fixar apps da gaveta para a tela inicial.
+- MainActivity.kt: cartão da gaveta substituído por ícone de grade 3×3 com tratamento visual dedicado e rótulo “Todos os apps”.
+- Gaveta: grade de cinco colunas com largura distribuída por peso, cartões redimensionados e margens menores para evitar corte lateral; cabeçalho informa que segurar OK abre as ações do app.
+- Novo recurso: pressionar e segurar OK em um app na gaveta permite adicionar/remover da tela inicial. Até nove apps podem ser fixados; a home mantém o atalho “Todos os apps” na segunda linha.
+- Persistência: nova chave SharedPreferences `home_apps_order` no arquivo existente `launcher_v2`. A chave antiga `order` (ordenação do catálogo) e a chave de canais `saimo_favorite_channels` não foram alteradas. Os dados sobrevivem a atualização instalada sobre a versão existente com mesma assinatura; não desinstalar nem limpar dados.
+- Commit UI: `649cffca1f2d84c1cfce614d406f70cdc9ea5e2f`.
+- Workflow ajustado para publicar o APK debug de validação da branch `rebuild/product-grade-foundation` como artefato `launcher-lite-validation-debug`; a compilação/artefato ainda dependem da execução CI.
+- Inicialização: nenhuma mudança foi feita em BootReceiver, HOME, AccessibilityService, role HOME, prioridade do Google TV ou fluxo de foco nesta atualização. Evidência já coletada continua indicando que o firmware inicia Google TV antes de BOOT_COMPLETED; o caminho LOCKED_BOOT_COMPLETED ainda não foi demonstrado como entregue ao receiver nesta inicialização recente. Não introduzir abertura antecipada da MainActivity sem garantir que suas dependências de armazenamento protegido por credencial e UI são seguras antes do desbloqueio.
+- Testes: nenhuma compilação local ou teste no Realme executado nesta etapa. Necessário validar gaveta completa sem cortes, fixar/remover apps com controle remoto, persistência após reinício e atualização, e regressão de foco/HOME/engrenagem. Build CI pendente.
