@@ -161,6 +161,16 @@ Não confiar cegamente no estado de build registrado neste documento: consultar 
 
 ## 11. Histórico de atualizações
 
+### 2026-11-26 — Instrumentação para diagnosticar a abertura da Google TV no boot
+- Problema: no boot a Google TV aparece primeiro e, alguns segundos depois, a Launcher Lite abre via `BOOT_COMPLETED`. Não é possível executar ADB durante a janela curta porque a depuração ainda não está disponível.
+- Auditoria: `BootReceiver` enviava um `PendingIntent` para abrir MainActivity, mas descartava silenciosamente todas as exceções e não registrava recebimento do broadcast nem tentativa/resultado do envio.
+- Alteração em `BootReceiver.kt`: logs `LauncherLite.Boot` no recebimento do broadcast, ação recebida, tempo desde boot, envio do PendingIntent e exceções completas.
+- Alteração em `MainActivity.kt`: log `LauncherLite.Boot` em `onCreate` com action/categorias do Intent e tempo desde boot.
+- Commits: `9f99235cddf46d17f5b389cd9decf63415fe0ea6` e `3b333d3caf32d835ef44e97527d2e81c8be0b6f6`.
+- Objetivo: após o próximo boot, recuperar os registros via logcat quando a depuração voltar e correlacionar os tempos com eventos ActivityTaskManager/Google TV. O log confirma eventos do app, não identifica sozinho quem iniciou a Google TV.
+- Estado: instrumentação enviada ao branch; build CI e teste no Realme Stick pendentes. Nenhuma lógica de foco, HOME, seleção de launcher ou abertura automática foi alterada nesta etapa. Google TV permanece instalada e habilitada.
+
+
 ### 2026-11-26 — Teste de inicialização a frio no Realme Stick
 - Usuário desligou completamente o Realme Stick, aguardou cerca de 20 segundos sem alimentação e ligou novamente.
 - Resultado observado: Google TV apareceu primeiro; alguns segundos depois, Launcher Lite abriu automaticamente.
