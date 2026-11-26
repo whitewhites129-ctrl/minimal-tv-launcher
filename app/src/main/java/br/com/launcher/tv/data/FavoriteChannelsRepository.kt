@@ -24,7 +24,7 @@ class FavoriteChannelsRepository(context: Context) {
 
     fun save(channels: List<String>) {
         val array = JSONArray()
-        channels.distinct().forEach(array::put)
+        channels.distinct().forEach { channel -> array.put(channel) }
         preferences.edit().putString(KEY, array.toString()).apply()
     }
 
