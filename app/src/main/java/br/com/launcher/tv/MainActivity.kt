@@ -30,6 +30,8 @@ import android.widget.Toast
 import android.app.AlertDialog
 import br.com.launcher.tv.core.HomeRoleController
 import br.com.launcher.tv.core.LauncherLifecycleCoordinator
+import br.com.launcher.tv.data.AppCatalogRepository
+import br.com.launcher.tv.data.FavoriteChannelsRepository
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -41,6 +43,8 @@ class MainActivity : Activity() {
     private val homeRoleController by lazy { HomeRoleController(this) }
     private val lifecycleCoordinator = LauncherLifecycleCoordinator()
     private val lifecycleLogTag = "LauncherLite.Lifecycle"
+    private val appCatalog by lazy { AppCatalogRepository(this) }
+    private val favoriteChannels by lazy { FavoriteChannelsRepository(this) }
     private val accent = Color.rgb(24, 142, 184)
     private val apps = mutableListOf<ResolveInfo>()
     private val prefs by lazy { getSharedPreferences("launcher_v2", MODE_PRIVATE) }
@@ -183,19 +187,10 @@ class MainActivity : Activity() {
     }
 
 
-    private fun savedChannels(): MutableList<String> {
-        val json = prefs.getString("saimo_favorite_channels", "[]") ?: "[]"
-        return try {
-            val array = org.json.JSONArray(json)
-            MutableList(array.length()) { i -> array.optString(i).trim() }.filter { it.isNotBlank() }
-                .distinctBy { it.lowercase(Locale.ROOT) }.toMutableList()
-        } catch (_: Exception) { mutableListOf() }
-    }
+    private fun savedChannels(): MutableList<String> = favoriteChannels.load()
 
     private fun saveChannels(channels: List<String>) {
-        val array = org.json.JSONArray()
-        channels.distinct().forEach { array.put(it) }
-        prefs.edit().putString("saimo_favorite_channels", array.toString()).apply()
+        favoriteChannels.save(channels)
         if (::channelRowContainer.isInitialized) renderChannels()
     }
 
@@ -1581,36 +1576,13 @@ class MainActivity : Activity() {
 
     private fun launch(app: ResolveInfo) {
         try {
-            val launchIntent = packageManager.getLaunchIntentForPackage(app.activityInfo.packageName)
-            if (launchIntent != null) startActivity(launchIntent)
-            else {
-                val intent = Intent(Intent.ACTION_MAIN)
-                    .addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER)
-                    .setClassName(app.activityInfo.packageName, app.activityInfo.name)
-                startActivity(intent)
-            }
+            startActivity(appCatalog.createLaunchIntent(app))
         } catch (_: Exception) {
             Toast.makeText(this, "Não foi possível abrir este aplicativo", Toast.LENGTH_SHORT).show()
         }
     }
 
-    private fun findApps(): List<ResolveInfo> {
-        val result = LinkedHashMap<String, ResolveInfo>()
-        val queries = listOf(
-            Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER),
-            Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
-        )
-        for (query in queries) {
-            @Suppress("DEPRECATION")
-            packageManager.queryIntentActivities(query, PackageManager.MATCH_ALL).forEach { info ->
-                val packageName = info.activityInfo?.packageName ?: return@forEach
-                if (packageName != packageNameOfSelf()) result.putIfAbsent(packageName, info)
-            }
-        }
-        return result.values.sortedBy { it.loadLabel(packageManager).toString().lowercase(Locale.getDefault()) }
-    }
-
-    private fun packageNameOfSelf() = "br.com.launcher.tv"
+    private fun findApps(): List<ResolveInfo> = appCatalog.loadLaunchableApps()
 
     private fun restoreOrder() {
         val saved = prefs.getString("order", null)?.split("|") ?: return
