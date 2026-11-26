@@ -84,6 +84,10 @@ class MainActivity : Activity() {
         logSessionEvent(sessionStateMachine.accept(LauncherSessionEvent.Created(now)))
         window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_FULLSCREEN or
             View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+        // Keep the TV awake while Launcher Lite is the visible HOME surface.
+        // The in-app clock screensaver remains active; this prevents Android
+        // from powering the display down behind it due to the idle timeout.
+        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         apps.addAll(findApps())
         restoreOrder()
         createHome()
@@ -1539,9 +1543,8 @@ class MainActivity : Activity() {
                 )
             }
             val params = GridLayout.LayoutParams(
-                GridLayout.spec(it / 3), GridLayout.spec(it % 3)
+                GridLayout.spec(it / 3), GridLayout.spec(it % 3), dp(12), dp(12)
             ).apply {
-                width = dp(12); height = dp(12)
                 setMargins(dp(3), dp(3), dp(3), dp(3))
             }
             glyph.addView(dot, params)
