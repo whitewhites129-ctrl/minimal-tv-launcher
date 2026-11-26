@@ -272,3 +272,12 @@ Não confiar cegamente no estado de build registrado neste documento: consultar 
 - Workflow ajustado para publicar o APK debug de validação da branch `rebuild/product-grade-foundation` como artefato `launcher-lite-validation-debug`; a compilação/artefato ainda dependem da execução CI.
 - Inicialização: nenhuma mudança foi feita em BootReceiver, HOME, AccessibilityService, role HOME, prioridade do Google TV ou fluxo de foco nesta atualização. Evidência já coletada continua indicando que o firmware inicia Google TV antes de BOOT_COMPLETED; o caminho LOCKED_BOOT_COMPLETED ainda não foi demonstrado como entregue ao receiver nesta inicialização recente. Não introduzir abertura antecipada da MainActivity sem garantir que suas dependências de armazenamento protegido por credencial e UI são seguras antes do desbloqueio.
 - Testes: nenhuma compilação local ou teste no Realme executado nesta etapa. Necessário validar gaveta completa sem cortes, fixar/remover apps com controle remoto, persistência após reinício e atualização, e regressão de foco/HOME/engrenagem. Build CI pendente.
+
+
+### 2026-11-26 — Correção da compilação e permanência ligada durante o protetor de tela
+- O workflow run 45833581167 (commit `ac852824f9dd71a9926577cfabef4302452aa19e`) falhou em `MainActivity.kt:1544`: o Kotlin rejeitou atribuições às propriedades `width` e `height` de `GridLayout.LayoutParams`.
+- Corrigido usando o construtor de `GridLayout.LayoutParams` que recebe largura e altura, sem alterar o layout pretendido.
+- Adicionado `FLAG_KEEP_SCREEN_ON` à janela da MainActivity. A intenção é impedir que o Android desligue o ecrã enquanto o Launcher Lite está visível, inclusive durante o protetor de tela interno (relógio em tela preta). O protetor continua aparecendo no tempo configurado e continua sendo dispensado pelo controle.
+- Essa alteração não desativa o modo de espera quando outro aplicativo está em primeiro plano e não modifica o painel OEM, a tecla Power, nem configurações globais do firmware.
+- Commit: `bc0c83795fe3a7035a1deab4a7eb0d89b9065510`.
+- Validação pendente: novo workflow, instalação/atualização no Realme Stick e teste real por período superior ao tempo de ativação do protetor de tela + tempo em que antes desligava. Build verde não prova que a política de energia OEM foi superada.
