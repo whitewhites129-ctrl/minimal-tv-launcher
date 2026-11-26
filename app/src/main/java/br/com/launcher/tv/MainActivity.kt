@@ -32,6 +32,7 @@ import br.com.launcher.tv.core.HomeRoleController
 import br.com.launcher.tv.core.LauncherLifecycleCoordinator
 import br.com.launcher.tv.data.AppCatalogRepository
 import br.com.launcher.tv.data.FavoriteChannelsRepository
+import br.com.launcher.tv.ui.FocusRestorationCoordinator
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -42,6 +43,7 @@ import java.util.Locale
 class MainActivity : Activity() {
     private val homeRoleController by lazy { HomeRoleController(this) }
     private val lifecycleCoordinator = LauncherLifecycleCoordinator()
+    private val focusRestorationCoordinator = FocusRestorationCoordinator()
     private val lifecycleLogTag = "LauncherLite.Lifecycle"
     private val appCatalog by lazy { AppCatalogRepository(this) }
     private val favoriteChannels by lazy { FavoriteChannelsRepository(this) }
@@ -122,6 +124,7 @@ class MainActivity : Activity() {
     }
 
     override fun onPause() {
+        focusRestorationCoordinator.capture(window.decorView.findFocus())
         lifecycleCoordinator.onPaused(SystemClock.elapsedRealtime())
         super.onPause()
     }
@@ -134,6 +137,13 @@ class MainActivity : Activity() {
     override fun onDestroy() {
         lifecycleCoordinator.onDestroyed(SystemClock.elapsedRealtime())
         super.onDestroy()
+    }
+
+    override fun onWindowFocusChanged(hasWindowFocus: Boolean) {
+        super.onWindowFocusChanged(hasWindowFocus)
+        if (hasWindowFocus && ::screenRoot.isInitialized) {
+            screenRoot.post { focusRestorationCoordinator.restore(screenRoot) }
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -238,6 +248,7 @@ class MainActivity : Activity() {
                 isFocusable = true
                 isFocusableInTouchMode = true
                 isClickable = true
+                setTag(R.id.focus_anchor, "focus:channel:$name")
                 clipChildren = true
                 clipToPadding = true
                 setOnClickListener { openSaimoChannel(name) }
@@ -296,6 +307,7 @@ class MainActivity : Activity() {
         }
 
         val addTile = LinearLayout(this).apply {
+            setTag(R.id.focus_anchor, "focus:channel:add")
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
             background = rounded(Color.rgb(20, 32, 55), 17, Color.rgb(62, 86, 132))
@@ -674,6 +686,7 @@ class MainActivity : Activity() {
             clipToPadding = false
         }
         val weatherPill = LinearLayout(this).apply {
+            setTag(R.id.focus_anchor, "focus:weather")
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
             setPadding(dp(12), dp(8), dp(12), dp(8))
@@ -718,6 +731,7 @@ class MainActivity : Activity() {
             imageTintList = android.content.res.ColorStateList.valueOf(Color.rgb(224, 235, 248))
             scaleType = ImageView.ScaleType.FIT_CENTER
             contentDescription = description
+            setTag(R.id.focus_anchor, "focus:header:$description")
             isFocusable = true
             isClickable = true
             setPadding(dp(12), dp(12), dp(12), dp(12))
@@ -1394,6 +1408,7 @@ class MainActivity : Activity() {
             if (banner != null) -1 else dp(66)
         ))
         card.contentDescription = app.loadLabel(packageManager).toString()
+        card.setTag(R.id.focus_anchor, "focus:app:${app.activityInfo.packageName}")
         card.tag = index
         card.setOnClickListener { if (!organizing) launch(app) }
         card.setOnLongClickListener { startOrganizing(index); true }
