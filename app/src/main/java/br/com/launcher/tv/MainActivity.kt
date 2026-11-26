@@ -1541,9 +1541,11 @@ class MainActivity : Activity() {
                     5,
                     Color.TRANSPARENT
                 )
+                minimumWidth = dp(12)
+                minimumHeight = dp(12)
             }
             val params = GridLayout.LayoutParams(
-                GridLayout.spec(it / 3), GridLayout.spec(it % 3), dp(12), dp(12)
+                GridLayout.spec(it / 3), GridLayout.spec(it % 3)
             ).apply {
                 setMargins(dp(3), dp(3), dp(3), dp(3))
             }
