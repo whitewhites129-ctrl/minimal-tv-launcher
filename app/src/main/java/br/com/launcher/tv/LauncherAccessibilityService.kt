@@ -1,69 +1,42 @@
 package br.com.launcher.tv
 
 import android.accessibilityservice.AccessibilityService
-import android.app.role.RoleManager
-import android.content.Intent
-import android.os.Build
-import android.os.SystemClock
+import android.util.Log
 import android.view.accessibility.AccessibilityEvent
+import br.com.launcher.tv.core.HomeRoleController
 
 /**
- * Optional compatibility fallback. It only returns to Launcher Lite when this app
- * is already the system's selected HOME app. It never intercepts HOME key events.
+ * Optional diagnostic observer only.
+ *
+ * Accessibility window events also occur while Android System UI, quick
+ * settings and OEM side panels are opening. This service deliberately never
+ * starts MainActivity or tries to reclaim foreground focus.
  */
 class LauncherAccessibilityService : AccessibilityService() {
-    private var lastLaunch = 0L
 
-    private val stockLauncherPackages = setOf(
-        "com.google.android.tvlauncher",
-        "com.google.android.apps.tv.launcherx"
-    )
-
-    private fun isLauncherLiteDefaultHome(): Boolean = try {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            getSystemService(RoleManager::class.java)
-                ?.isRoleHeld(RoleManager.ROLE_HOME) == true
-        } else {
-            packageManager.resolveActivity(
-                Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME),
-                0
-            )?.activityInfo?.packageName == packageName
-        }
-    } catch (_: Exception) {
-        false
+    override fun onServiceConnected() {
+        super.onServiceConnected()
+        val role = HomeRoleController(this).snapshot()
+        Log.i(TAG, "Diagnostic observer connected; HOME state=${role.state}")
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        // Only react to actual foreground activity changes. Window changes also fire
-        // when quick settings/side panels animate and caused focus/panel flicker.
         if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
 
-        // Never fight Android's HOME selection. The service is only a fallback
-        // after Launcher Lite has already been selected as the default launcher.
-        if (!isLauncherLiteDefaultHome()) return
-
-        val foreground = event.packageName?.toString() ?: return
-        if (foreground !in stockLauncherPackages) return
-
-        val now = SystemClock.elapsedRealtime()
-        if (now - lastLaunch < 5000L) return
-
-        try {
-            val launch = Intent(this, MainActivity::class.java).apply {
-                action = Intent.ACTION_MAIN
-                addCategory(Intent.CATEGORY_HOME)
-                addFlags(
-                    Intent.FLAG_ACTIVITY_NEW_TASK or
-                        Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                        Intent.FLAG_ACTIVITY_SINGLE_TOP
-                )
-            }
-            startActivity(launch)
-            lastLaunch = now
-        } catch (_: Exception) {
-            // Some TV firmwares block activity starts from accessibility services.
+        val packageName = event.packageName?.toString() ?: return
+        if (packageName == "com.android.systemui" ||
+            packageName == "com.google.android.apps.tv.launcherx" ||
+            packageName == "com.google.android.tvlauncher"
+        ) {
+            Log.d(TAG, "Observed window transition: $packageName (no foreground action)")
         }
     }
 
-    override fun onInterrupt() = Unit
+    override fun onInterrupt() {
+        Log.i(TAG, "Diagnostic observer interrupted")
+    }
+
+    private companion object {
+        const val TAG = "LauncherLite.Accessibility"
+    }
 }
