@@ -161,6 +161,15 @@ Não confiar cegamente no estado de build registrado neste documento: consultar 
 
 ## 11. Histórico de atualizações
 
+### 2026-11-26 — Correção do botão Voltar na raiz da Launcher
+- Relato confirmado no Realme Stick: HOME abre a Launcher Lite, mas pressionar Voltar repetidamente na tela inicial encerra a Launcher e expõe a Google TV.
+- Auditoria do método `MainActivity.onBackPressed()`: os painéis internos já tinham tratamento próprio, mas o fluxo final chamava `super.onBackPressed()`, permitindo que a Activity raiz fosse finalizada.
+- Alteração: quando não há protetor de tela, painel de notificações, painel rápido, página de clima ou modo de organização ativo, Voltar agora mantém a MainActivity aberta e solicita restauração do foco na raiz. O tratamento de Voltar dentro dos aplicativos não foi alterado; o AccessibilityService continua filtrando exclusivamente HOME.
+- Arquivo: `app/src/main/java/br/com/launcher/tv/MainActivity.kt`.
+- Commit: `a1964d5262dd3e2132edaa14d8ac7b2c35fb8ace`.
+- Estado: alteração enviada ao branch. Build CI e teste no Realme Stick ainda pendentes. Validar Voltar na tela inicial, dentro de menus/painéis da Launcher e dentro de aplicativos; confirmar também que HOME e engrenagem/painel OEM continuam funcionando.
+
+
 ### 2026-11-26 — HOME detectado e roteamento experimental implementado
 - Teste real no Realme Stick: com o serviço Launcher Lite habilitado, `dumpsys accessibility` mostrou `capabilities=8`, correspondente a `CAPABILITY_CAN_FILTER_KEY_EVENTS`.
 - Após limpar o log, pressionar HOME produziu `action=0, keyCode=3` e `action=1, keyCode=3` na tag `LauncherLite.Accessibility`. Isso confirma que o serviço recebe o pressionamento e a soltura de HOME.
