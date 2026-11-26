@@ -11,7 +11,7 @@ class FocusRestorationCoordinator {
     private var rememberedAnchor: String? = null
 
     fun capture(focused: View?) {
-        val anchor = focused?.getTag(android.R.id.content) as? String
+        val anchor = (focused?.tag as? FocusAnchor)?.key
         if (!anchor.isNullOrBlank()) rememberedAnchor = anchor
     }
 
