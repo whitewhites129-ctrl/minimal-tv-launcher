@@ -12,6 +12,11 @@ import android.util.Log
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         Log.i(TAG, "onReceive action=${intent.action}; elapsedRealtime=${SystemClock.elapsedRealtime()}")
+        if (intent.action == Intent.ACTION_LOCKED_BOOT_COMPLETED) {
+            Log.i(TAG, "LOCKED_BOOT_COMPLETED observed; diagnostic only, not launching UI; elapsedRealtime=${SystemClock.elapsedRealtime()}")
+            return
+        }
+
         if (intent.action != Intent.ACTION_BOOT_COMPLETED) {
             Log.w(TAG, "Ignoring unexpected boot broadcast")
             return
