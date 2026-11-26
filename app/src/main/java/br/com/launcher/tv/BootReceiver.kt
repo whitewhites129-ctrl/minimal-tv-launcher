@@ -11,16 +11,16 @@ import android.util.Log
 
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        val action = intent.action
+        val broadcastAction = intent.action
         val elapsed = SystemClock.elapsedRealtime()
-        Log.i(TAG, "onReceive action=$action; elapsedRealtime=$elapsed")
+        Log.i(TAG, "onReceive action=$broadcastAction; elapsedRealtime=$elapsed")
 
         // This receiver is directBootAware. Record only a tiny diagnostic marker
         // in device-protected storage; do not touch credential-protected prefs or UI.
         val deviceContext = context.createDeviceProtectedStorageContext()
         val bootDiagnostics = deviceContext.getSharedPreferences(BOOT_PREFS, Context.MODE_PRIVATE)
 
-        if (action == Intent.ACTION_LOCKED_BOOT_COMPLETED) {
+        if (broadcastAction == Intent.ACTION_LOCKED_BOOT_COMPLETED) {
             val saved = bootDiagnostics.edit()
                 .putBoolean(KEY_LOCKED_BOOT_RECEIVED, true)
                 .putLong(KEY_LOCKED_BOOT_ELAPSED, elapsed)
@@ -29,7 +29,7 @@ class BootReceiver : BroadcastReceiver() {
             return
         }
 
-        if (action != Intent.ACTION_BOOT_COMPLETED) {
+        if (broadcastAction != Intent.ACTION_BOOT_COMPLETED) {
             Log.w(TAG, "Ignoring unexpected boot broadcast")
             return
         }
