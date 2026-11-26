@@ -161,6 +161,16 @@ Não confiar cegamente no estado de build registrado neste documento: consultar 
 
 ## 11. Histórico de atualizações
 
+### 2026-11-26 — HOME detectado e roteamento experimental implementado
+- Teste real no Realme Stick: com o serviço Launcher Lite habilitado, `dumpsys accessibility` mostrou `capabilities=8`, correspondente a `CAPABILITY_CAN_FILTER_KEY_EVENTS`.
+- Após limpar o log, pressionar HOME produziu `action=0, keyCode=3` e `action=1, keyCode=3` na tag `LauncherLite.Accessibility`. Isso confirma que o serviço recebe o pressionamento e a soltura de HOME.
+- Alterado `LauncherAccessibilityService.kt`: agora trata exclusivamente `KEYCODE_HOME`; inicia `MainActivity` no primeiro ACTION_DOWN, ignora repetições para evitar múltiplas aberturas e consome o ACTION_UP. Outras teclas, inclusive a tecla de configurações/engrenagem, continuam retornando `false` para o sistema.
+- A abertura usa `NEW_TASK | CLEAR_TOP | SINGLE_TOP`, compatível com o `launchMode="singleTask"` já declarado para MainActivity. Não foi introduzido loop de relançamento, polling ou ação em `onWindowFocusChanged`.
+- Em falha de ActivityNotFoundException ou SecurityException, o serviço registra o erro e devolve HOME ao sistema.
+- Commit: `c69b50a19d018793e10f258bb7705e57fc2b2412`.
+- Estado: código enviado ao branch; build e teste no dispositivo ainda pendentes. Não afirmar que HOME foi corrigido até instalar o APK e validar HOME, engrenagem/painel OEM, retorno de apps e repetição de HOME. Google TV permanece instalado e habilitado; nenhum teste pediu sua remoção.
+ 
+
 ### 2026-11-26 — Protótipo experimental de captura de teclas e boot
 - Teste no Realme Stick confirmou: role HOME pertence a `br.com.launcher.tv`, serviço Launcher Lite está habilitado, mas após pressionar HOME a atividade em primeiro plano é `com.google.android.apps.tv.launcherx/.home.HomeActivity`.
 - `dumpsys accessibility` mostrou Launcher Lite com `capabilities=0`, ouvindo somente `TYPE_WINDOW_STATE_CHANGED`; Button Mapper também está habilitado. Não há evidência suficiente para atribuir a falha ao Button Mapper.
