@@ -161,6 +161,17 @@ Não confiar cegamente no estado de build registrado neste documento: consultar 
 
 ## 11. Histórico de atualizações
 
+### 2026-11-26 — Protótipo experimental de captura de teclas e boot
+- Teste no Realme Stick confirmou: role HOME pertence a `br.com.launcher.tv`, serviço Launcher Lite está habilitado, mas após pressionar HOME a atividade em primeiro plano é `com.google.android.apps.tv.launcherx/.home.HomeActivity`.
+- `dumpsys accessibility` mostrou Launcher Lite com `capabilities=0`, ouvindo somente `TYPE_WINDOW_STATE_CHANGED`; Button Mapper também está habilitado. Não há evidência suficiente para atribuir a falha ao Button Mapper.
+- Alterado `launcher_accessibility_service.xml` para solicitar `canRequestFilterKeyEvents` e `flagRequestFilterKeyEvents`.
+- Alterado `LauncherAccessibilityService.kt` para registrar eventos de tecla em `LauncherLite.Accessibility` e sempre retornar `false`; nenhum evento é consumido e nenhuma Activity é iniciada.
+- Alterado `AndroidManifest.xml` para declarar `RECEIVE_BOOT_COMPLETED` e registrar o `BootReceiver` existente.
+- Commits: `9d4a24d6bcad60d39e953f73f4a2533599c25b41`, `43b2c6a68ae47b09bd4a294f28935678a5debf25`, `e5041e146f309417d85ead67a684d736fe660644`.
+- Risco/limite: Android/OEM pode não entregar KEYCODE_HOME ao serviço; outro serviço de acessibilidade pode ocupar a filtragem de teclas. O receiver de boot pode continuar sujeito às restrições de início em segundo plano do Android 14/firmware.
+- Ainda não compilado/testado neste dispositivo. Build CI e teste de captura são pendentes. Painel OEM não foi alterado; o serviço não consome teclas.
+ 
+
 ### 2026-11-26 — Artefato baixado e inspecionado localmente
 - Baixado o artefato GitHub Actions `minimal-tv-launcher-apk` (artifact ID `15083062311`) e extraído o ZIP.
 - ZIP continha `app-release.apk`; tamanho do APK: 703.020 bytes.
