@@ -1798,7 +1798,11 @@ class MainActivity : Activity() {
         if (quick != null) { screenRoot.removeView(quick); return }
         if (weatherPage != null) { screenRoot.removeView(weatherPage); weatherPage = null; return }
         if (organizing) { stopOrganizingUi(); organizing = false; moving = -1; restoreOrder(); renderApps(); return }
-        super.onBackPressed()
+
+        // The launcher is the HOME surface: BACK at its root must not finish
+        // MainActivity, otherwise Android exposes the fallback Google TV launcher.
+        Log.d("LauncherLite.Navigation", "BACK at launcher root; keeping MainActivity alive")
+        screenRoot.post { focusRestorationCoordinator.restore(screenRoot) }
     }
 
     private fun rounded(color: Int, radius: Int, stroke: Int) = GradientDrawable().apply {
