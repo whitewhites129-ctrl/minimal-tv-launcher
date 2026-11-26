@@ -6,10 +6,16 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.os.SystemClock
+import android.util.Log
 
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
+        Log.i(TAG, "onReceive action=${intent.action}; elapsedRealtime=${SystemClock.elapsedRealtime()}")
+        if (intent.action != Intent.ACTION_BOOT_COMPLETED) {
+            Log.w(TAG, "Ignoring unexpected boot broadcast")
+            return
+        }
 
         val launchIntent = Intent(context, MainActivity::class.java).apply {
             action = Intent.ACTION_MAIN
@@ -35,8 +41,13 @@ class BootReceiver : BroadcastReceiver() {
             } else {
                 pendingIntent.send()
             }
-        } catch (_: Exception) {
-            // The firmware may still block activity launches during boot.
+            Log.i(TAG, "Launcher Lite launch PendingIntent sent; elapsedRealtime=${SystemClock.elapsedRealtime()}")
+        } catch (error: Exception) {
+            Log.e(TAG, "Failed to request Launcher Lite launch during boot", error)
         }
+    }
+
+    private companion object {
+        const val TAG = "LauncherLite.Boot"
     }
 }
