@@ -161,6 +161,16 @@ Não confiar cegamente no estado de build registrado neste documento: consultar 
 
 ## 11. Histórico de atualizações
 
+### 2026-11-26 — Diagnóstico de LOCKED_BOOT_COMPLETED (somente instrumentação)
+- Evidência anterior no Realme Stick: a Google TV foi iniciada antes de o sistema entregar BOOT_COMPLETED ao Launcher Lite; a função HOME e a atividade HOME preferencial do usuário 0 já apontam para br.com.launcher.tv.
+- Alteração em BootReceiver.kt: reconhecer LOCKED_BOOT_COMPLETED, registrar a ação e o elapsedRealtime, e retornar sem iniciar MainActivity. O caminho existente de BOOT_COMPLETED permanece inalterado.
+- Alteração no AndroidManifest.xml: tornar o receiver directBootAware e registrar LOCKED_BOOT_COMPLETED além de BOOT_COMPLETED.
+- Segurança: no evento LOCKED_BOOT_COMPLETED o receiver apenas escreve no logcat; não acessa preferências/arquivos protegidos por credencial, não abre UI e não altera HOME, acessibilidade, painel OEM ou estado do Google TV.
+- Objetivo do teste: comparar o instante de LOCKED_BOOT_COMPLETED com os eventos de inicialização do FallbackHome, Google TV e BOOT_COMPLETED para saber se há oportunidade anterior ao launcher OEM. A presença do evento não garante que seja permitido iniciar uma Activity nessa fase.
+- Commits de código: 20b0ba56b74b87c281cce9ddd4d9daf6336b344f e 7078a176c99e1da769490155a7970d8c6492d4b3.
+- Estado: instrumentação enviada ao branch; build CI, instalação e novo teste de inicialização a frio pendentes. Não considerar correção funcional nem release aprovada.
+
+
 ### 2026-11-26 — Experimento: prioridade do filtro HOME elevada
 - Evidência do Realme Stick: `cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME` retornou `com.google.android.apps.tv.launcherx/.home.HomeActivity`, apesar de `cmd role get-role-holders android.app.role.HOME` ter indicado `br.com.launcher.tv` em consulta anterior.
 - `cmd package query-activities ... CATEGORY_HOME` listou cinco candidatos: Google TV prioridade 2; Recovery prioridade 1; Launcher Lite prioridade 0; Monet prioridade 0; FallbackHome prioridade -1000.
