@@ -289,3 +289,11 @@ Não confiar cegamente no estado de build registrado neste documento: consultar 
 - O caminho de abertura atual via `BOOT_COMPLETED` permanece inalterado. Nenhuma tentativa de abrir UI durante Direct Boot foi adicionada.
 - Commit: `4bce209a2751b3ccc674688f0d439ccafdde2725`.
 - Estado: alteração commitada; build CI e instalação/teste no Realme Stick pendentes. Após instalar, fazer um único desligamento completo e consultar o logcat `LauncherLite.Boot`. Se `lockedBootReceived=false`, o receiver não registrou o evento; se `true`, teremos confirmação persistente e horário para decidir o próximo experimento. Isso ainda não corrige a transição visual do Google TV.
+
+
+### 2026-11-26 — Correção de compilação no diagnóstico de Direct Boot
+- Workflow run `45841210739` falhou no job `validate`, compilando `BootReceiver.kt:42`: `'val' cannot be reassigned`.
+- Causa: a variável local `action` sombreava a propriedade `Intent.action` dentro do bloco `apply` da Intent de inicialização; a atribuição `action = Intent.ACTION_MAIN` era interpretada como tentativa de reatribuir a variável local.
+- Correção: renomeada a variável local para `broadcastAction`; o campo `Intent.action` volta a ser resolvido corretamente. Sem mudança no comportamento de inicialização ou nos dados gravados.
+- Commit corretivo: `83d9b5ccf1275abad5547d7b5cb20a84ee23b8fa`.
+- Estado: correção enviada; novo workflow pendente. Nenhum APK dessa tentativa deve ser instalado até a compilação passar.
