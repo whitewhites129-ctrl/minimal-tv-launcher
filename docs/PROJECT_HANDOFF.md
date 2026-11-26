@@ -161,6 +161,13 @@ Não confiar cegamente no estado de build registrado neste documento: consultar 
 
 ## 11. Histórico de atualizações
 
+### 2026-11-26 — Retorno positivo nos testes de regressão iniciais
+- Usuário informou: “Até agora tudo certo”, após a instalação do APK com a correção de Voltar na raiz.
+- Interpretação registrada: não foram relatados novos problemas nos testes realizados até o momento, incluindo o comportamento de navegação que motivou a correção e as verificações seguintes solicitadas (retorno de aplicativos e painel OEM/engrenagem).
+- Estado: validação inicial positiva no Realme Stick. Ainda não equivale à aprovação completa de release; permanecem importantes os testes de reboot, standby/retomada, HOME repetido e uso prolongado.
+- Nenhum código ou APK foi alterado nesta atualização; apenas o registro de continuidade foi atualizado.
+
+
 ### 2026-11-26 — Retorno inicial do usuário: Voltar na raiz
 - Usuário instalou o APK do commit `a1964d5262dd3e2132edaa14d8ac7b2c35fb8ace` (workflow run `45751771780`, conclusão success).
 - Feedback: “Parece que funcionou”, após testar Voltar repetidamente na tela inicial.
