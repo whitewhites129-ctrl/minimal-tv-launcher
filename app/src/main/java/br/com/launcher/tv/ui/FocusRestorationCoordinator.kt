@@ -2,7 +2,6 @@ package br.com.launcher.tv.ui
 
 import android.view.View
 import android.view.ViewGroup
-import br.com.launcher.tv.R
 
 /**
  * Restores only the last explicitly tagged focus target after this Activity
@@ -12,7 +11,7 @@ class FocusRestorationCoordinator {
     private var rememberedAnchor: String? = null
 
     fun capture(focused: View?) {
-        val anchor = focused?.getTag(R.id.focus_anchor) as? String
+        val anchor = focused?.getTag(android.R.id.content) as? String
         if (!anchor.isNullOrBlank()) rememberedAnchor = anchor
     }
 
