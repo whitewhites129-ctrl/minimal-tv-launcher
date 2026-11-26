@@ -32,6 +32,7 @@ import br.com.launcher.tv.core.HomeRoleController
 import br.com.launcher.tv.core.LauncherLifecycleCoordinator
 import br.com.launcher.tv.data.AppCatalogRepository
 import br.com.launcher.tv.data.FavoriteChannelsRepository
+import br.com.launcher.tv.ui.FocusAnchor
 import br.com.launcher.tv.ui.FocusRestorationCoordinator
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -260,7 +261,7 @@ class MainActivity : Activity() {
                 isFocusable = true
                 isFocusableInTouchMode = true
                 isClickable = true
-                setTag(android.R.id.content, "focus:channel:$name")
+                tag = FocusAnchor("focus:channel:$name")
                 clipChildren = true
                 clipToPadding = true
                 setOnClickListener { openSaimoChannel(name) }
@@ -319,7 +320,7 @@ class MainActivity : Activity() {
         }
 
         val addTile = LinearLayout(this).apply {
-            setTag(android.R.id.content, "focus:channel:add")
+            tag = FocusAnchor("focus:channel:add")
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
             background = rounded(Color.rgb(20, 32, 55), 17, Color.rgb(62, 86, 132))
@@ -701,7 +702,7 @@ class MainActivity : Activity() {
             clipToPadding = false
         }
         val weatherPill = LinearLayout(this).apply {
-            setTag(android.R.id.content, "focus:weather")
+            tag = FocusAnchor("focus:weather")
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
             setPadding(dp(12), dp(8), dp(12), dp(8))
@@ -746,7 +747,7 @@ class MainActivity : Activity() {
             imageTintList = android.content.res.ColorStateList.valueOf(Color.rgb(224, 235, 248))
             scaleType = ImageView.ScaleType.FIT_CENTER
             contentDescription = description
-            setTag(android.R.id.content, "focus:header:$description")
+            tag = FocusAnchor("focus:header:$description")
             isFocusable = true
             isClickable = true
             setPadding(dp(12), dp(12), dp(12), dp(12))
@@ -1423,8 +1424,7 @@ class MainActivity : Activity() {
             if (banner != null) -1 else dp(66)
         ))
         card.contentDescription = app.loadLabel(packageManager).toString()
-        card.setTag(android.R.id.content, "focus:app:${app.activityInfo.packageName}")
-        card.tag = index
+        card.tag = FocusAnchor("focus:app:${app.activityInfo.packageName}", index)
         card.setOnClickListener { if (!organizing) launch(app) }
         card.setOnLongClickListener { startOrganizing(index); true }
         addGridCard(card, width, height, row, col)
@@ -1680,7 +1680,8 @@ class MainActivity : Activity() {
         if (event.action == KeyEvent.ACTION_DOWN) {
             if (saverView != null) { dismissScreenSaver(); return true }
             if (!organizing && event.repeatCount >= 1 && (event.keyCode == KeyEvent.KEYCODE_DPAD_CENTER || event.keyCode == KeyEvent.KEYCODE_ENTER)) {
-                val appIndex = currentFocus?.tag as? Int
+                val focusedTag = currentFocus?.tag
+                val appIndex = (focusedTag as? FocusAnchor)?.appIndex ?: (focusedTag as? Int)
                 if (appIndex != null && appIndex in apps.indices) { startOrganizing(appIndex); return true }
             }
             if (organizing && event.keyCode in listOf(KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN)) {
