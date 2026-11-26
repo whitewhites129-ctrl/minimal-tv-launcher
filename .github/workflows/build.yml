@@ -49,10 +49,10 @@ jobs:
         if: github.ref == 'refs/heads/rebuild/product-grade-foundation'
         run: gradle assembleDebug
       - name: Upload test APK
-        if: github.ref == 'refs/heads/rebuild/launcher-core-v1'
+        if: github.ref == 'refs/heads/rebuild/product-grade-foundation'
         uses: actions/upload-artifact@v4
         with:
-          name: launcher-lite-rebuild-debug
+          name: launcher-lite-validation-debug
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
 
