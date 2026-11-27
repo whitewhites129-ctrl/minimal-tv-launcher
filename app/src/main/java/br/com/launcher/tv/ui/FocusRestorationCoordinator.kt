@@ -22,6 +22,10 @@ class FocusRestorationCoordinator {
         return target.requestFocus()
     }
 
+    fun clear() {
+        rememberedAnchor = null
+    }
+
     fun rememberedKey(): String? = rememberedAnchor
 
     private fun findTarget(view: View, anchor: String): View? {
