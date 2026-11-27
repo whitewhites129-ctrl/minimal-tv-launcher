@@ -2,7 +2,7 @@ name: Build Android APK
 on:
   workflow_dispatch:
   push:
-    branches: [ "main", "rebuild/launcher-core-v1", "rebuild/product-grade-foundation", "fix/app-drawer-home-focus-ui" ]
+    branches: [ "main", "rebuild/launcher-core-v1", "rebuild/product-grade-foundation" ]
 permissions:
   contents: read
 jobs:
