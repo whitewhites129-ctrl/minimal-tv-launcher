@@ -75,7 +75,6 @@ class MainActivity : Activity() {
     private var moving = -1
     private var sortPulse: ObjectAnimator? = null
     private var sortDoneButton: TextView? = null
-    private var resetFocusOnNextWindowFocus = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -172,12 +171,6 @@ class MainActivity : Activity() {
             return
         }
 
-        if (resetFocusOnNextWindowFocus) {
-            resetFocusOnNextWindowFocus = false
-            screenRoot.post { focusHomeNeutral() }
-            return
-        }
-
         val overlayIsOpen = saverView != null || weatherPage != null ||
             screenRoot.findViewWithTag<View>("notification_panel_root") != null ||
             screenRoot.findViewWithTag<View>("quick_panel") != null
@@ -195,19 +188,7 @@ class MainActivity : Activity() {
         super.onNewIntent(intent)
         setIntent(intent)
         if (saverView != null) dismissScreenSaver()
-
-        // HOME returns to a neutral header control instead of restoring the
-        // last app tile, which otherwise remains visibly selected.
-        focusRestorationCoordinator.clear()
-        resetFocusOnNextWindowFocus = true
-        screenRoot.post { focusHomeNeutral() }
         resetIdleTimer()
-    }
-
-    private fun focusHomeNeutral() {
-        if (!::screenRoot.isInitialized) return
-        val neutralTarget = screenRoot.findViewWithTag<View>(FocusAnchor("focus:weather"))
-        neutralTarget?.requestFocus()
     }
 
     private fun createHome() {
@@ -311,12 +292,12 @@ class MainActivity : Activity() {
                 clipToPadding = true
                 setOnClickListener { openSaimoChannel(name) }
                 setOnLongClickListener {
-                    AlertDialog.Builder(this@MainActivity, R.style.AppDialogTheme)
+                    AlertDialog.Builder(this@MainActivity)
                         .setTitle(name)
                         .setItems(arrayOf("Editar nome", "Remover dos favoritos", "Cancelar")) { dialog, which ->
                             when (which) {
                                 0 -> showEditChannelDialog(name)
-                                1 -> AlertDialog.Builder(this@MainActivity, R.style.AppDialogTheme)
+                                1 -> AlertDialog.Builder(this@MainActivity)
                                     .setTitle("Remover canal")
                                     .setMessage("Remover $name dos favoritos?")
                                     .setNegativeButton("Cancelar", null)
@@ -413,7 +394,7 @@ class MainActivity : Activity() {
             setPadding(dp(22), dp(8), dp(22), 0)
             addView(field, LinearLayout.LayoutParams(-1, dp(52)))
         }
-        val dialog = AlertDialog.Builder(this, R.style.AppDialogTheme)
+        val dialog = AlertDialog.Builder(this)
             .setTitle("Adicionar canal do Saímo")
             .setMessage("Digite o nome do canal exatamente como aparece na lista do Saímo TV.")
             .setView(box)
@@ -453,7 +434,7 @@ class MainActivity : Activity() {
             setPadding(dp(22), dp(8), dp(22), 0)
             addView(field, LinearLayout.LayoutParams(-1, dp(52)))
         }
-        val dialog = AlertDialog.Builder(this, R.style.AppDialogTheme)
+        val dialog = AlertDialog.Builder(this)
             .setTitle("Editar canal")
             .setMessage("Altere o nome usado para localizar e abrir o canal no Saímo TV.")
             .setView(box)
@@ -491,7 +472,7 @@ class MainActivity : Activity() {
     }
 
     private fun showLauncherSettingsDialog() {
-        AlertDialog.Builder(this, R.style.AppDialogTheme).setTitle("Configurações")
+        AlertDialog.Builder(this).setTitle("Configurações")
             .setItems(arrayOf("Assistente de configuração", "Definir Launcher Lite como tela inicial", "Ativar acessibilidade (opcional)", "Acesso às notificações", "Configurações do Android")) { _, which ->
                 when (which) {
                     0 -> {
@@ -622,7 +603,7 @@ class MainActivity : Activity() {
         }
         content.addView(progress)
         content.addView(body)
-        val dialog = AlertDialog.Builder(this, R.style.AppDialogTheme)
+        val dialog = AlertDialog.Builder(this)
             .setTitle(title)
             .setView(content)
             .setPositiveButton(actionLabel, null)
@@ -1546,44 +1527,35 @@ class MainActivity : Activity() {
             setPadding(dp(8), dp(7), dp(8), dp(7))
             background = rounded(Color.rgb(12, 29, 43), 20, Color.rgb(39, 111, 145))
         }
-        // A compact 2x2 app-window mark: clearer than the old generic white square/dots.
-        val glyph = object : View(this) {
-            private val tilePaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
-            private val tileColors = intArrayOf(
-                Color.rgb(245, 251, 255),
-                Color.rgb(111, 218, 247),
-                Color.rgb(181, 235, 250),
-                Color.rgb(225, 245, 255)
-            )
-
-            override fun onDraw(canvas: android.graphics.Canvas) {
-                super.onDraw(canvas)
-                val unit = (minOf(width, height) * 0.34f)
-                val gap = unit * 0.22f
-                val total = unit * 2f + gap
-                val left = (width - total) / 2f
-                val top = (height - total) / 2f
-                for (index in 0..3) {
-                    val x = left + (index % 2) * (unit + gap)
-                    val y = top + (index / 2) * (unit + gap)
-                    tilePaint.color = tileColors[index]
-                    tilePaint.setShadowLayer(dp(3).toFloat(), 0f, dp(2).toFloat(), 0x55000000)
-                    canvas.drawRoundRect(
-                        x, y, x + unit, y + unit,
-                        unit * 0.24f, unit * 0.24f, tilePaint
-                    )
-                    tilePaint.clearShadowLayer()
-                }
-            }
-        }.apply {
+        val glyph = GridLayout(this).apply {
+            columnCount = 3
+            rowCount = 3
+            useDefaultMargins = false
+            alignmentMode = GridLayout.ALIGN_BOUNDS
             isFocusable = false
-            setLayerType(View.LAYER_TYPE_SOFTWARE, null)
+        }
+        repeat(9) {
+            val dot = View(this).apply {
+                background = rounded(
+                    if (it == 4) Color.rgb(108, 211, 244) else Color.rgb(221, 239, 250),
+                    5,
+                    Color.TRANSPARENT
+                )
+                minimumWidth = dp(12)
+                minimumHeight = dp(12)
+            }
+            val params = GridLayout.LayoutParams(
+                GridLayout.spec(it / 3), GridLayout.spec(it % 3)
+            ).apply {
+                setMargins(dp(3), dp(3), dp(3), dp(3))
+            }
+            glyph.addView(dot, params)
         }
         val glyphHolder = FrameLayout(this).apply {
-            background = rounded(Color.rgb(17, 59, 88), 18, Color.rgb(83, 190, 225))
-            addView(glyph, FrameLayout.LayoutParams(dp(54), dp(54), Gravity.CENTER))
+            background = rounded(Color.rgb(18, 54, 76), 17, Color.rgb(48, 126, 159))
+            addView(glyph, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
         }
-        card.addView(glyphHolder, LinearLayout.LayoutParams(dp(68), dp(68)))
+        card.addView(glyphHolder, LinearLayout.LayoutParams(dp(58), dp(58)))
         card.addView(TextView(this).apply {
             text = "Todos os apps"
             textSize = 11f
@@ -1677,7 +1649,7 @@ class MainActivity : Activity() {
                     val current = homeApps().toMutableList()
                     val alreadyPinned = current.any { it.activityInfo.packageName == packageName }
                     val action = if (alreadyPinned) "Remover da tela inicial" else "Adicionar à tela inicial"
-                    AlertDialog.Builder(this@MainActivity, R.style.AppDialogTheme)
+                    AlertDialog.Builder(this@MainActivity)
                         .setTitle(app.loadLabel(packageManager).toString())
                         .setItems(arrayOf(action, "Cancelar")) { _, which ->
                             if (which == 0) {
