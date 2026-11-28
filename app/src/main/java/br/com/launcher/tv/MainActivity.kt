@@ -27,6 +27,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import android.text.InputType
 import android.app.AlertDialog
 import br.com.launcher.tv.core.HomeRoleController
 import br.com.launcher.tv.core.LauncherLifecycleCoordinator
@@ -39,11 +40,16 @@ import br.com.launcher.tv.navigation.LauncherSessionStateMachine
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
+import java.net.URLEncoder
+import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 class MainActivity : Activity() {
+    private data class WeatherLocation(val latitude: Double, val longitude: Double, val cep: String, val label: String)
+    @Volatile private var cachedWeatherLocation: WeatherLocation? = null
+    private var weatherLocationLabel = "CEP 09843-790 • São Bernardo do Campo, SP"
     private val homeRoleController by lazy { HomeRoleController(this) }
     private val lifecycleCoordinator = LauncherLifecycleCoordinator()
     private val sessionStateMachine = LauncherSessionStateMachine()
@@ -58,6 +64,7 @@ class MainActivity : Activity() {
     private lateinit var date: TextView
     private lateinit var weatherIcon: TextView
     private lateinit var weatherText: TextView
+    private lateinit var weatherUpdatedText: TextView
     private lateinit var appGrid: GridLayout
     private lateinit var channelRowContainer: LinearLayout
     private var lastRenderedChannels: List<String>? = null
@@ -201,7 +208,7 @@ class MainActivity : Activity() {
             layoutParams = ViewGroup.LayoutParams(-1, -1)
         }
         root.addView(createHeader(), LinearLayout.LayoutParams(-1, dp(104)))
-        root.addView(createChannelRow(), LinearLayout.LayoutParams(-1, dp(142)))
+        root.addView(createChannelRow(), LinearLayout.LayoutParams(-1, dp(channelRegionHeight())))
 
         val content = FrameLayout(this).apply { clipChildren = false; clipToPadding = false }
         val scroll = android.widget.ScrollView(this).apply {
@@ -252,6 +259,13 @@ class MainActivity : Activity() {
         return channelRowContainer.also { renderChannels() }
     }
 
+    private fun channelRegionHeight(): Int {
+        val rows = prefs.getInt("channel_rows", 1).coerceIn(1, 3)
+        val size = prefs.getInt("channel_size", 1).coerceIn(0, 2)
+        val cardHeight = when (size) { 0 -> 62; 2 -> 100; else -> 82 }
+        return 60 + rows * cardHeight
+    }
+
     private fun renderChannels(force: Boolean = false) {
         if (!::channelRowContainer.isInitialized) return
         val channels = savedChannels()
@@ -259,26 +273,40 @@ class MainActivity : Activity() {
         focusRestorationCoordinator.capture(window.decorView.findFocus())
         lastRenderedChannels = channels.toList()
         channelRowContainer.removeAllViews()
-
-        val scroller = android.widget.HorizontalScrollView(this).apply {
-            isHorizontalScrollBarEnabled = false
+        val columns = prefs.getInt("channel_columns", 5).coerceIn(3, 7)
+        val size = prefs.getInt("channel_size", 1).coerceIn(0, 2)
+        val cardHeight = when (size) { 0 -> dp(62); 2 -> dp(100); else -> dp(82) }
+        val screenWidth = (resources.displayMetrics.widthPixels / resources.displayMetrics.density).toInt()
+        val contentWidth = screenWidth - 116
+        val scroller = android.widget.ScrollView(this).apply {
+            isVerticalScrollBarEnabled = false
             overScrollMode = View.OVER_SCROLL_NEVER
             clipChildren = false
             clipToPadding = false
-            setPadding(dp(4), dp(8), dp(4), dp(8))
+            setPadding(0, dp(5), 0, dp(5))
         }
-        val strip = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
+        val grid = GridLayout(this).apply {
+            columnCount = columns
+            useDefaultMargins = false
+            alignmentMode = GridLayout.ALIGN_BOUNDS
             clipChildren = false
             clipToPadding = false
         }
-
         ChannelLogos.ensure(this, channels) {
             if (::channelRowContainer.isInitialized) renderChannels(force = true)
         }
-
-        channels.forEach { name ->
+        fun addChannelTile(tile: View, index: Int) {
+            val params = GridLayout.LayoutParams(
+                GridLayout.spec(index / columns),
+                GridLayout.spec(index % columns, 1f)
+            ).apply {
+                width = 0
+                height = cardHeight
+                setMargins(dp(4), dp(4), dp(4), dp(4))
+            }
+            grid.addView(tile, params)
+        }
+        channels.forEachIndexed { index, name ->
             val tile = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
@@ -292,12 +320,12 @@ class MainActivity : Activity() {
                 clipToPadding = true
                 setOnClickListener { openSaimoChannel(name) }
                 setOnLongClickListener {
-                    AlertDialog.Builder(this@MainActivity)
+                    AlertDialog.Builder(this@MainActivity, R.style.AppDialogTheme)
                         .setTitle(name)
-                        .setItems(arrayOf("Editar nome", "Remover dos favoritos", "Cancelar")) { dialog, which ->
+                        .setItems(arrayOf("Editar nome", "Remover dos favoritos", "Cancelar")) { _, which ->
                             when (which) {
                                 0 -> showEditChannelDialog(name)
-                                1 -> AlertDialog.Builder(this@MainActivity)
+                                1 -> AlertDialog.Builder(this@MainActivity, R.style.AppDialogTheme)
                                     .setTitle("Remover canal")
                                     .setMessage("Remover $name dos favoritos?")
                                     .setNegativeButton("Cancelar", null)
@@ -319,7 +347,6 @@ class MainActivity : Activity() {
                     v.scaleY = if (focused) 1.025f else 1f
                 }
             }
-
             val logoImage = ImageView(this).apply {
                 scaleType = ImageView.ScaleType.FIT_CENTER
                 adjustViewBounds = true
@@ -340,11 +367,8 @@ class MainActivity : Activity() {
                 logoImage.visibility = if (loaded) View.VISIBLE else View.GONE
                 logoFallback.visibility = if (loaded) View.GONE else View.VISIBLE
             }
-            strip.addView(tile, LinearLayout.LayoutParams(dp(132), dp(82)).apply {
-                rightMargin = dp(9)
-            })
+            addChannelTile(tile, index)
         }
-
         val addTile = LinearLayout(this).apply {
             tag = FocusAnchor("focus:channel:add")
             orientation = LinearLayout.VERTICAL
@@ -353,6 +377,7 @@ class MainActivity : Activity() {
             isFocusable = true
             isFocusableInTouchMode = true
             isClickable = true
+            contentDescription = "Adicionar canal favorito"
             setOnClickListener { showAddChannelDialog() }
             setOnFocusChangeListener { v, focused ->
                 v.background = rounded(
@@ -366,23 +391,19 @@ class MainActivity : Activity() {
             }
             addView(TextView(this@MainActivity).apply {
                 text = "+"
-                textSize = 48f
+                textSize = 42f
                 typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
                 setTextColor(Color.rgb(220, 235, 250))
                 gravity = Gravity.CENTER
             }, LinearLayout.LayoutParams(-1, -1))
         }
-        strip.addView(addTile, LinearLayout.LayoutParams(dp(132), dp(82)))
-        scroller.addView(strip, ViewGroup.LayoutParams(-2, -1))
-        scroller.post {
-            strip.minimumWidth = (scroller.width - scroller.paddingLeft - scroller.paddingRight).coerceAtLeast(0)
-        }
+        addChannelTile(addTile, channels.size)
+        scroller.addView(grid, ViewGroup.LayoutParams(-1, -2))
         channelRowContainer.addView(scroller, LinearLayout.LayoutParams(-1, -1))
-        if (::screenRoot.isInitialized && hasWindowFocus()) {
-            channelRowContainer.post { focusRestorationCoordinator.restore(screenRoot) }
+        if (::screenRoot.isInitialized && hasWindowFocus()) channelRowContainer.post {
+            focusRestorationCoordinator.restore(screenRoot)
         }
     }
-
     private fun showAddChannelDialog() {
         val field = EditText(this).apply {
             hint = "Nome do canal (ex.: sbt, record, globo)"
@@ -394,7 +415,7 @@ class MainActivity : Activity() {
             setPadding(dp(22), dp(8), dp(22), 0)
             addView(field, LinearLayout.LayoutParams(-1, dp(52)))
         }
-        val dialog = AlertDialog.Builder(this)
+        val dialog = AlertDialog.Builder(this, R.style.AppDialogTheme)
             .setTitle("Adicionar canal do Saímo")
             .setMessage("Digite o nome do canal exatamente como aparece na lista do Saímo TV.")
             .setView(box)
@@ -434,7 +455,7 @@ class MainActivity : Activity() {
             setPadding(dp(22), dp(8), dp(22), 0)
             addView(field, LinearLayout.LayoutParams(-1, dp(52)))
         }
-        val dialog = AlertDialog.Builder(this)
+        val dialog = AlertDialog.Builder(this, R.style.AppDialogTheme)
             .setTitle("Editar canal")
             .setMessage("Altere o nome usado para localizar e abrir o canal no Saímo TV.")
             .setView(box)
@@ -471,8 +492,182 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun applyHomeLayoutPreferences() {
+        if (::appGrid.isInitialized) renderApps()
+        if (::channelRowContainer.isInitialized) {
+            val params = channelRowContainer.layoutParams
+            params.height = dp(channelRegionHeight())
+            channelRowContainer.layoutParams = params
+            renderChannels(force = true)
+        }
+    }
+
+    private fun addSettingsSection(parent: LinearLayout, title: String, description: String? = null) {
+        parent.addView(TextView(this).apply {
+            text = title; textSize = 17f
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            setTextColor(Color.WHITE); setPadding(0, dp(15), 0, dp(3))
+        })
+        if (!description.isNullOrBlank()) parent.addView(TextView(this).apply {
+            text = description; textSize = 11f
+            setTextColor(Color.rgb(145, 164, 188)); setPadding(0, 0, 0, dp(8))
+        })
+    }
+
+    private fun addSettingsChoices(
+        parent: LinearLayout, title: String, key: String,
+        options: List<Pair<String, Int>>, defaultValue: Int, onChanged: () -> Unit = {}
+    ) {
+        parent.addView(TextView(this).apply {
+            text = title; textSize = 12f
+            setTextColor(Color.rgb(178, 195, 216)); setPadding(0, dp(9), 0, dp(6))
+        })
+        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        val chips = mutableListOf<Pair<TextView, Int>>()
+        fun paintSelection(value: Int) {
+            chips.forEach { (chip, optionValue) ->
+                val selected = optionValue == value
+                chip.background = rounded(if (selected) Color.rgb(15, 87, 119) else Color.rgb(19, 29, 44),
+                    11, if (selected) Color.rgb(42, 190, 231) else Color.rgb(47, 65, 87))
+                chip.setTextColor(if (selected) Color.WHITE else Color.rgb(185, 201, 221))
+            }
+        }
+        options.forEachIndexed { index, option ->
+            val chip = TextView(this).apply {
+                text = option.first; textSize = 12f; gravity = Gravity.CENTER
+                isFocusable = true; isClickable = true; setPadding(dp(7), dp(8), dp(7), dp(8))
+                setOnClickListener {
+                    prefs.edit().putInt(key, option.second).apply()
+                    paintSelection(option.second); onChanged()
+                }
+            }
+            chips.add(chip to option.second)
+            row.addView(chip, LinearLayout.LayoutParams(0, dp(39), 1f).apply {
+                if (index < options.lastIndex) rightMargin = dp(6)
+            })
+        }
+        parent.addView(row)
+        paintSelection(prefs.getInt(key, defaultValue).coerceIn(options.minOf { it.second }, options.maxOf { it.second }))
+    }
+
+    private fun showDrawerSettingsDialog() {
+        val dialog = android.app.Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(Color.rgb(7, 12, 21))
+            setPadding(dp(34), dp(22), dp(34), dp(18))
+        }
+        val top = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        val titleBlock = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        titleBlock.addView(TextView(this).apply {
+            text = "Personalizar Launcher"; textSize = 26f
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL); setTextColor(Color.WHITE)
+        })
+        titleBlock.addView(TextView(this).apply {
+            text = "Ajuste a organização e a aparência da sua tela inicial"
+            textSize = 12f; setTextColor(Color.rgb(145, 164, 188)); setPadding(0, dp(3), 0, 0)
+        })
+        top.addView(titleBlock, LinearLayout.LayoutParams(0, dp(58), 1f))
+        val close = TextView(this).apply {
+            text = "✕"; textSize = 22f; gravity = Gravity.CENTER
+            setTextColor(Color.WHITE); isFocusable = true; isClickable = true
+            background = rounded(Color.rgb(19, 29, 44), 13, Color.rgb(49, 67, 90))
+            setOnClickListener { dialog.dismiss() }
+        }
+        top.addView(close, LinearLayout.LayoutParams(dp(48), dp(44)))
+        root.addView(top)
+        val scroll = android.widget.ScrollView(this).apply {
+            isFillViewport = false; isVerticalScrollBarEnabled = false
+            overScrollMode = View.OVER_SCROLL_NEVER; setPadding(0, dp(8), 0, dp(8))
+        }
+        val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        addSettingsSection(content, "Canais favoritos", "Organize os canais em uma grade. A área se ajusta à quantidade de fileiras.")
+        addSettingsChoices(content, "Canais por fileira", "channel_columns",
+            listOf("3" to 3, "4" to 4, "5" to 5, "6" to 6, "7" to 7), 5) { applyHomeLayoutPreferences() }
+        addSettingsChoices(content, "Fileiras de canais", "channel_rows",
+            listOf("1" to 1, "2" to 2, "3" to 3), 1) { applyHomeLayoutPreferences() }
+        addSettingsChoices(content, "Tamanho dos cards de canais", "channel_size",
+            listOf("Pequeno" to 0, "Médio" to 1, "Grande" to 2), 1) { applyHomeLayoutPreferences() }
+
+        addSettingsSection(content, "Aplicativos da tela inicial", "As mesmas colunas também organizam a gaveta completa de aplicativos.")
+        addSettingsChoices(content, "Apps por fileira", "home_app_columns",
+            listOf("3" to 3, "4" to 4, "5" to 5, "6" to 6, "7" to 7), 5) { applyHomeLayoutPreferences() }
+        addSettingsChoices(content, "Fileiras de aplicativos", "home_app_rows",
+            listOf("1" to 1, "2" to 2, "3" to 3), 2) { applyHomeLayoutPreferences() }
+        addSettingsChoices(content, "Tamanho dos cards de aplicativos", "home_app_size",
+            listOf("Pequeno" to 0, "Médio" to 1, "Grande" to 2), 1) { applyHomeLayoutPreferences() }
+
+        addSettingsSection(content, "Clima", "A previsão é localizada pelo CEP informado.")
+        val cepRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(5), 0, dp(5)) }
+        val cepField = EditText(this).apply {
+            setText(currentWeatherCep()); hint = "CEP com 8 números"; textSize = 16f
+            setTextColor(Color.WHITE); setHintTextColor(Color.rgb(116, 135, 159))
+            inputType = InputType.TYPE_CLASS_NUMBER; singleLine = true
+            setPadding(dp(12), 0, dp(12), 0)
+            background = rounded(Color.rgb(17, 27, 42), 12, Color.rgb(48, 68, 91))
+        }
+        cepRow.addView(cepField, LinearLayout.LayoutParams(0, dp(46), 1f).apply { rightMargin = dp(10) })
+        val saveCep = TextView(this).apply {
+            text = "Salvar"; textSize = 13f
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            gravity = Gravity.CENTER; setTextColor(Color.WHITE); isFocusable = true; isClickable = true
+            background = rounded(Color.rgb(12, 91, 126), 12, Color.rgb(43, 186, 224))
+            setPadding(dp(18), 0, dp(18), 0)
+            setOnClickListener {
+                val cep = cepField.text.toString().filter { it.isDigit() }
+                if (cep.length != 8) Toast.makeText(this@MainActivity, "Digite um CEP válido com 8 números.", Toast.LENGTH_SHORT).show()
+                else {
+                    prefs.edit().putString("weather_cep", cep).apply()
+                    cachedWeatherLocation = null
+                    weatherUpdatedText.text = "Atualizando para $cep"
+                    refreshWeather()
+                    Toast.makeText(this@MainActivity, "CEP salvo. Atualizando previsão…", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+        cepRow.addView(saveCep, LinearLayout.LayoutParams(dp(105), dp(46)))
+        content.addView(cepRow)
+        content.addView(TextView(this).apply {
+            text = "Padrão: 09843790"; textSize = 10f; setTextColor(Color.rgb(117, 137, 163))
+        })
+
+        val footer = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(18), 0, dp(6))
+        }
+        val reset = TextView(this).apply {
+            text = "Restaurar padrão"; textSize = 12f; setTextColor(Color.rgb(171, 194, 217))
+            gravity = Gravity.CENTER; isFocusable = true; isClickable = true
+            background = rounded(Color.rgb(19, 29, 44), 11, Color.rgb(49, 67, 90))
+            setPadding(dp(14), dp(11), dp(14), dp(11))
+            setOnClickListener {
+                prefs.edit()
+                    .putInt("channel_columns", 5).putInt("channel_rows", 1).putInt("channel_size", 1)
+                    .putInt("home_app_columns", 5).putInt("home_app_rows", 2).putInt("home_app_size", 1)
+                    .putString("weather_cep", "09843790").apply()
+                cepField.setText("09843790"); cachedWeatherLocation = null
+                applyHomeLayoutPreferences(); refreshWeather()
+                Toast.makeText(this@MainActivity, "Preferências padrão restauradas.", Toast.LENGTH_SHORT).show()
+            }
+        }
+        footer.addView(reset)
+        footer.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
+        footer.addView(TextView(this).apply {
+            text = "Sistema ⚙"; textSize = 12f; setTextColor(Color.rgb(171, 194, 217))
+            gravity = Gravity.CENTER; isFocusable = true; isClickable = true
+            background = rounded(Color.rgb(19, 29, 44), 11, Color.rgb(49, 67, 90))
+            setPadding(dp(14), dp(11), dp(14), dp(11))
+            setOnClickListener { dialog.dismiss(); showLauncherSettingsDialog() }
+        })
+        content.addView(footer)
+        scroll.addView(content, ViewGroup.LayoutParams(-1, -2))
+        root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
+        dialog.setContentView(root)
+        dialog.setOnDismissListener { resetIdleTimer() }
+        dialog.show(); dialog.window?.setLayout(-1, -1); close.requestFocus()
+    }
+
     private fun showLauncherSettingsDialog() {
-        AlertDialog.Builder(this).setTitle("Configurações")
+        AlertDialog.Builder(this, R.style.AppDialogTheme).setTitle("Configurações")
             .setItems(arrayOf("Assistente de configuração", "Definir Launcher Lite como tela inicial", "Ativar acessibilidade (opcional)", "Acesso às notificações", "Configurações do Android")) { _, which ->
                 when (which) {
                     0 -> {
@@ -603,7 +798,7 @@ class MainActivity : Activity() {
         }
         content.addView(progress)
         content.addView(body)
-        val dialog = AlertDialog.Builder(this)
+        val dialog = AlertDialog.Builder(this, R.style.AppDialogTheme)
             .setTitle(title)
             .setView(content)
             .setPositiveButton(actionLabel, null)
@@ -746,15 +941,28 @@ class MainActivity : Activity() {
             textSize = 22f
             setTextColor(Color.WHITE)
         }
+        val weatherInfo = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(7), 0, 0, 0)
+        }
         weatherText = TextView(this).apply {
             text = "Clima"
             textSize = 13f
-            setTextColor(Color.rgb(220, 232, 246))
-            setPadding(dp(7), 0, 0, 0)
+            setTextColor(Color.rgb(232, 241, 252))
             maxLines = 1
         }
+        weatherUpdatedText = TextView(this).apply {
+            text = "CEP 09843-790"
+            textSize = 9f
+            setTextColor(Color.rgb(142, 162, 186))
+            maxLines = 1
+            setPadding(0, dp(2), 0, 0)
+        }
+        weatherInfo.addView(weatherText)
+        weatherInfo.addView(weatherUpdatedText)
         weatherPill.addView(weatherIcon)
-        weatherPill.addView(weatherText)
+        weatherPill.addView(weatherInfo)
         actions.addView(headerAction(R.drawable.ic_mic_modern, "Pesquisa por voz") { openVoice() })
         actions.addView(headerAction(R.drawable.ic_notifications_modern, "Notificações") { openNotificationsPanel() })
         actions.addView(headerAction(R.drawable.ic_settings_modern, "Configurações") { showLauncherSettingsDialog() })
@@ -1129,7 +1337,13 @@ class MainActivity : Activity() {
         val top = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         top.addView(TextView(this).apply { text = "Previsão do tempo"; textSize = 27f; setTextColor(Color.WHITE) })
         page.addView(top)
-        page.addView(TextView(this).apply { text = "Batistini • São Bernardo do Campo, SP"; textSize = 15f; setTextColor(Color.LTGRAY); setPadding(0, dp(5), 0, dp(12)) })
+        val weatherLocationView = TextView(this).apply {
+            text = weatherLocationLabel
+            textSize = 13f
+            setTextColor(Color.rgb(156, 177, 202))
+            setPadding(0, dp(5), 0, dp(12))
+        }
+        page.addView(weatherLocationView)
         page.addView(TextView(this).apply { text = weatherIcon.text.toString() + "   " + weatherText.text.toString(); textSize = 19f; setTextColor(Color.WHITE); setPadding(dp(18), dp(10), dp(18), dp(10)); background = rounded(Color.rgb(16, 24, 38), 18, Color.rgb(45, 65, 90)) }, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(16) })
         val hoursTitle = TextView(this).apply { text = "Previsão por hora — hoje"; textSize = 19f; setTextColor(Color.WHITE); setPadding(0, 0, 0, dp(8)) }
         page.addView(hoursTitle)
@@ -1155,11 +1369,19 @@ class MainActivity : Activity() {
         screenRoot.addView(page, FrameLayout.LayoutParams(-1, -1)); page.isFocusableInTouchMode = false
         Thread {
             try {
-                val url = URL("https://api.open-meteo.com/v1/forecast?latitude=-23.7717&longitude=-46.59097&hourly=temperature_2m,precipitation_probability,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&forecast_days=7&timezone=America%2FSao_Paulo")
-                val c = (url.openConnection() as HttpURLConnection).apply { connectTimeout = 12000; readTimeout = 12000 }
-                val j = JSONObject(c.inputStream.bufferedReader().use { it.readText() }); c.disconnect()
+                val location = cachedWeatherLocation?.takeIf { it.cep == currentWeatherCep() }
+                    ?: resolveWeatherLocation(currentWeatherCep()).also { cachedWeatherLocation = it }
+                val url = URL("https://api.open-meteo.com/v1/forecast?latitude=${location.latitude}&longitude=${location.longitude}&hourly=temperature_2m,precipitation_probability,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&forecast_days=7&timezone=America%2FSao_Paulo")
+                val c = (url.openConnection() as HttpURLConnection).apply { connectTimeout = 10000; readTimeout = 10000 }
+                val status = c.responseCode
+                val response = (if (status in 200..299) c.inputStream else c.errorStream)?.bufferedReader()?.use { it.readText() }.orEmpty()
+                c.disconnect()
+                if (status !in 200..299) throw IOException("Previsão HTTP $status")
+                val j = JSONObject(response)
                 val h = j.getJSONObject("hourly"); val d = j.getJSONObject("daily")
                 runOnUiThread {
+                    weatherLocationLabel = location.label
+                    weatherLocationView.text = location.label
                     hr.removeAllViews(); val ts = h.getJSONArray("time"); val tv = h.getJSONArray("temperature_2m"); val rp = h.getJSONArray("precipitation_probability"); val wc = h.getJSONArray("weather_code")
                     val parser = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm", Locale.getDefault()); val fmt = java.text.SimpleDateFormat("HH:mm", Locale.getDefault())
                     val first = (0 until ts.length()).firstOrNull { i -> try { !parser.parse(ts.getString(i)).before(Date()) } catch (_: Exception) { false } } ?: 0
@@ -1333,52 +1555,113 @@ class MainActivity : Activity() {
         date.text = SimpleDateFormat("EEE, d 'de' MMM", Locale("pt", "BR")).format(now)
     }
 
+    private fun currentWeatherCep(): String =
+        prefs.getString("weather_cep", "09843790").orEmpty().filter { it.isDigit() }.take(8).padStart(8, '0')
+
+    private fun httpGet(url: String): String {
+        val connection = (URL(url).openConnection() as HttpURLConnection).apply {
+            connectTimeout = 10000
+            readTimeout = 10000
+            requestMethod = "GET"
+            setRequestProperty("Accept", "application/json")
+            setRequestProperty("User-Agent", "LauncherLite/0.7")
+        }
+        try {
+            val status = connection.responseCode
+            val body = (if (status in 200..299) connection.inputStream else connection.errorStream)
+                ?.bufferedReader()?.use { it.readText() }.orEmpty()
+            if (status !in 200..299) throw IOException("HTTP $status: ${body.take(160)}")
+            return body
+        } finally { connection.disconnect() }
+    }
+
+    private fun resolveWeatherLocation(cep: String): WeatherLocation {
+        if (cep.length != 8) throw IOException("Informe um CEP com 8 números.")
+        val address = JSONObject(httpGet("https://brasilapi.com.br/api/cep/v2/$cep"))
+        val coordinates = address.optJSONObject("location")?.optJSONObject("coordinates")
+        fun number(value: Any?): Double? = when (value) {
+            is Number -> value.toDouble()
+            is String -> value.toDoubleOrNull()
+            else -> null
+        }
+        val latitude = number(coordinates?.opt("latitude"))
+        val longitude = number(coordinates?.opt("longitude"))
+        val city = address.optString("city", address.optString("localidade", "")).trim()
+        val state = address.optString("state", address.optString("uf", "")).trim()
+        val neighborhood = address.optString("neighborhood", address.optString("bairro", "")).trim()
+        val formattedCep = cep.substring(0, 5) + "-" + cep.substring(5)
+        val placeLabel = listOf(neighborhood, city, state).filter { it.isNotBlank() }.joinToString(" • ")
+        val label = if (placeLabel.isBlank()) "CEP $formattedCep" else "$placeLabel • CEP $formattedCep"
+        if (latitude != null && longitude != null && latitude in -90.0..90.0 && longitude in -180.0..180.0) {
+            return WeatherLocation(latitude, longitude, cep, label)
+        }
+        if (city.isBlank()) throw IOException("Não foi possível localizar esse CEP.")
+        val queries = listOf(
+            listOf(neighborhood, city, state).filter { it.isNotBlank() }.joinToString(", "),
+            listOf(city, state).filter { it.isNotBlank() }.joinToString(", ")
+        ).distinct()
+        for (query in queries) {
+            val encoded = URLEncoder.encode(query, "UTF-8")
+            val geo = JSONObject(httpGet("https://geocoding-api.open-meteo.com/v1/search?name=$encoded&count=5&language=pt&format=json&countryCode=BR"))
+            val results = geo.optJSONArray("results") ?: continue
+            for (i in 0 until results.length()) {
+                val result = results.optJSONObject(i) ?: continue
+                if (result.optString("country_code") != "BR") continue
+                val lat = result.optDouble("latitude", Double.NaN)
+                val lon = result.optDouble("longitude", Double.NaN)
+                if (lat.isFinite() && lon.isFinite()) return WeatherLocation(lat, lon, cep, label)
+            }
+        }
+        throw IOException("Não encontramos a localização desse CEP.")
+    }
+
     private fun refreshWeather() {
-        weatherText.text = "Atualizando previsão…"
+        if (::weatherText.isInitialized) weatherText.text = "Atualizando clima…"
+        if (::weatherUpdatedText.isInitialized) weatherUpdatedText.text = "Consultando CEP"
+        val cep = currentWeatherCep()
         Thread {
-            var label = "Clima indisponível — toque para tentar novamente"
-            var symbol = "☁"
+            var finalLabel = "Clima indisponível • toque para tentar novamente"
+            var finalSymbol = "☁"
+            var updated = "Não atualizado"
+            var locationLabel = weatherLocationLabel
             try {
-                val address = URL("https://api.open-meteo.com/v1/forecast?latitude=-23.7717&longitude=-46.59097&current=temperature_2m,relative_humidity_2m,weather_code,is_day&timezone=America%2FSao_Paulo")
-                val connection = (address.openConnection() as HttpURLConnection).apply {
-                    connectTimeout = 12000
-                    readTimeout = 12000
-                    requestMethod = "GET"
-                    setRequestProperty("Accept", "application/json")
-                }
-                val response = connection.inputStream.bufferedReader().use { it.readText() }
-                connection.disconnect()
-                val current = JSONObject(response).getJSONObject("current")
+                val location = cachedWeatherLocation?.takeIf { it.cep == cep } ?: resolveWeatherLocation(cep)
+                cachedWeatherLocation = location
+                locationLabel = location.label
+                val query = "https://api.open-meteo.com/v1/forecast?latitude=${location.latitude}&longitude=${location.longitude}&current=temperature_2m,relative_humidity_2m,weather_code,is_day&timezone=America%2FSao_Paulo"
+                val current = JSONObject(httpGet(query)).getJSONObject("current")
                 val temperature = current.getDouble("temperature_2m").toInt()
                 val humidity = current.getInt("relative_humidity_2m")
                 val code = current.getInt("weather_code")
                 val description = when (code) {
-                    0 -> "Céu limpo"
-                    1 -> "Poucas nuvens"
-                    2 -> "Parcialmente nublado"
-                    3 -> "Nublado"
-                    45, 48 -> "Neblina"
-                    51, 53, 55, 56, 57 -> "Garoa"
-                    61, 63, 65, 66, 67 -> "Chuva"
-                    80, 81, 82 -> "Pancadas de chuva"
-                    95, 96, 99 -> "Trovoadas"
-                    else -> "Condição atual"
+                    0 -> "Céu limpo"; 1 -> "Poucas nuvens"; 2 -> "Parcialmente nublado"; 3 -> "Nublado"
+                    45, 48 -> "Neblina"; 51, 53, 55, 56, 57 -> "Garoa"
+                    61, 63, 65, 66, 67 -> "Chuva"; 80, 81, 82 -> "Pancadas de chuva"
+                    95, 96, 99 -> "Trovoadas"; else -> "Condição atual"
                 }
-                symbol = when {
-                    code >= 95 -> "⛈"
-                    code in 51..67 || code in 80..82 -> "🌧"
+                finalSymbol = when {
+                    code >= 95 -> "⛈"; code in 51..67 || code in 80..82 -> "🌧"
                     code == 45 || code == 48 -> "🌫"
                     code == 0 -> if (current.optInt("is_day", 1) == 1) "☀" else "☾"
-                    code in 2..3 -> "☁"
-                    else -> "🌤"
+                    code in 2..3 -> "☁"; else -> "🌤"
                 }
-                label = "$temperature°C  •  $description  •  Umidade $humidity%"
-            } catch (_: Exception) { }
-            val finalLabel = label
-            val finalSymbol = symbol
+                finalLabel = "$temperature°C  •  $description  •  Umidade $humidity%"
+                updated = "Atualizado às " + SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+            } catch (error: Exception) {
+                Log.w("LauncherLite.Weather", "Falha ao atualizar clima para o CEP $cep", error)
+                finalLabel = if (error.message?.contains("CEP", true) == true)
+                    "CEP não localizado • toque para configurar"
+                else "Clima indisponível • toque para tentar novamente"
+            }
+            val resultLabel = finalLabel
+            val resultSymbol = finalSymbol
+            val resultUpdated = updated
+            val resultLocation = locationLabel
             runOnUiThread {
-                weatherText.text = finalLabel
-                weatherIcon.text = finalSymbol
+                if (::weatherText.isInitialized) weatherText.text = resultLabel
+                if (::weatherIcon.isInitialized) weatherIcon.text = resultSymbol
+                if (::weatherUpdatedText.isInitialized) weatherUpdatedText.text = resultUpdated
+                weatherLocationLabel = resultLocation
             }
         }.start()
     }
@@ -1399,20 +1682,22 @@ class MainActivity : Activity() {
 
     private fun renderApps(focus: Int = 0) {
         appGrid.removeAllViews()
-        appGrid.columnCount = 5
+        val columns = prefs.getInt("home_app_columns", 5).coerceIn(3, 7)
+        val rows = prefs.getInt("home_app_rows", 2).coerceIn(1, 3)
+        val size = prefs.getInt("home_app_size", 1).coerceIn(0, 2)
+        appGrid.columnCount = columns
         val screenWidth = (resources.displayMetrics.widthPixels / resources.displayMetrics.density).toInt()
         val contentWidth = screenWidth - 116
-        val horizontalMargins = dp(18) * 5
-        val tileWidth = dp(((contentWidth - horizontalMargins) / 5).coerceIn(118, 220))
-        val tileHeight = (tileWidth * 0.62f).toInt().coerceAtLeast(dp(76))
-        val visible = homeApps()
-        visible.take(5).forEachIndexed { index, app ->
-            addAppCard(app, index, tileWidth, tileHeight, 0, index)
+        val horizontalMargins = 18 * columns
+        val tileWidth = dp(((contentWidth - horizontalMargins) / columns).coerceIn(96, 250))
+        val ratio = when (size) { 0 -> 0.53f; 2 -> 0.72f; else -> 0.62f }
+        val tileHeight = (tileWidth * ratio).toInt().coerceAtLeast(dp(72))
+        val visible = homeApps().take((columns * rows - 1).coerceAtLeast(1))
+        visible.forEachIndexed { index, app ->
+            addAppCard(app, index, tileWidth, tileHeight, index / columns, index % columns)
         }
-        visible.drop(5).take(4).forEachIndexed { index, app ->
-            addAppCard(app, index + 5, tileWidth, tileHeight, 1, index)
-        }
-        addAllAppsCard(tileWidth, tileHeight, 1, 4)
+        val drawerIndex = visible.size
+        addAllAppsCard(tileWidth, tileHeight, drawerIndex / columns, drawerIndex % columns)
         if (appGrid.childCount > 0) {
             val actual = focus.coerceIn(0, appGrid.childCount - 1)
             appGrid.post { appGrid.getChildAt(actual)?.requestFocus() }
@@ -1453,9 +1738,12 @@ class MainActivity : Activity() {
             arrows.addView(left); arrows.addView(right)
             card.addView(arrows, LinearLayout.LayoutParams(-1, dp(28)))
         }
+        val artworkSize = when (prefs.getInt("home_app_size", 1).coerceIn(0, 2)) {
+            0 -> dp(48); 2 -> dp(78); else -> dp(66)
+        }
         card.addView(image, LinearLayout.LayoutParams(
-            if (banner != null) -1 else dp(66),
-            if (banner != null) -1 else dp(66)
+            if (banner != null) -1 else artworkSize,
+            if (banner != null) -1 else artworkSize
         ))
         card.contentDescription = app.loadLabel(packageManager).toString()
         card.tag = FocusAnchor("focus:app:${app.activityInfo.packageName}", index)
@@ -1527,40 +1815,31 @@ class MainActivity : Activity() {
             setPadding(dp(8), dp(7), dp(8), dp(7))
             background = rounded(Color.rgb(12, 29, 43), 20, Color.rgb(39, 111, 145))
         }
-        // Draw the app-drawer symbol directly so every device renders the
-        // same 3x3 mark. Avoid implicit GridLayout child sizing on TV firmware.
+        // Four rounded tiles: the selected option 2 from the icon concepts.
         val glyph = object : View(this) {
             private val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
                 style = android.graphics.Paint.Style.FILL
             }
-
             override fun onDraw(canvas: android.graphics.Canvas) {
                 super.onDraw(canvas)
-                val cell = dp(6).toFloat()
-                val gap = dp(5).toFloat()
-                val total = cell * 3f + gap * 2f
+                val cell = dp(11).toFloat()
+                val gap = dp(6).toFloat()
+                val total = cell * 2f + gap
                 val startX = (width - total) / 2f
                 val startY = (height - total) / 2f
-
-                for (row in 0..2) {
-                    for (col in 0..2) {
-                        paint.color = if (row == 1 && col == 1) {
-                            Color.rgb(108, 211, 244)
-                        } else {
-                            Color.rgb(221, 239, 250)
-                        }
+                for (row in 0..1) {
+                    for (col in 0..1) {
+                        paint.color = if (row == 1 && col == 1) Color.rgb(65, 205, 244)
+                            else Color.rgb(226, 239, 251)
                         val left = startX + col * (cell + gap)
                         val top = startY + row * (cell + gap)
-                        canvas.drawRoundRect(
-                            left, top, left + cell, top + cell,
-                            dp(2).toFloat(), dp(2).toFloat(), paint
-                        )
+                        canvas.drawRoundRect(left, top, left + cell, top + cell, dp(3).toFloat(), dp(3).toFloat(), paint)
                     }
                 }
             }
         }.apply {
             isFocusable = false
-            contentDescription = "Ícone da gaveta de aplicativos"
+            contentDescription = "Ícone de quatro quadrados da gaveta de aplicativos"
         }
         val glyphHolder = FrameLayout(this).apply {
             background = rounded(Color.rgb(18, 54, 76), 17, Color.rgb(48, 126, 159))
@@ -1609,6 +1888,17 @@ class MainActivity : Activity() {
         })
         top.addView(titleBlock, LinearLayout.LayoutParams(0, dp(58), 1f))
         top.addView(TextView(this).apply {
+            text = "⚙"
+            textSize = 22f
+            setTextColor(Color.rgb(216, 232, 248))
+            gravity = Gravity.CENTER
+            isFocusable = true
+            isClickable = true
+            background = rounded(Color.rgb(21, 31, 45), 15, Color.rgb(52, 69, 91))
+            contentDescription = "Configurações da Launcher Lite"
+            setOnClickListener { dialog.dismiss(); showDrawerSettingsDialog() }
+        }, LinearLayout.LayoutParams(dp(50), dp(46)).apply { rightMargin = dp(8) })
+        top.addView(TextView(this).apply {
             text = "✕"
             textSize = 23f
             setTextColor(Color.WHITE)
@@ -1627,8 +1917,10 @@ class MainActivity : Activity() {
             overScrollMode = View.OVER_SCROLL_NEVER
             setPadding(0, dp(12), 0, dp(8))
         }
+        val drawerColumns = prefs.getInt("home_app_columns", 5).coerceIn(3, 7)
+        val drawerSize = prefs.getInt("home_app_size", 1).coerceIn(0, 2)
         val grid = GridLayout(this).apply {
-            columnCount = 5
+            columnCount = drawerColumns
             useDefaultMargins = false
             alignmentMode = GridLayout.ALIGN_BOUNDS
             clipChildren = false
@@ -1660,7 +1952,7 @@ class MainActivity : Activity() {
                     val current = homeApps().toMutableList()
                     val alreadyPinned = current.any { it.activityInfo.packageName == packageName }
                     val action = if (alreadyPinned) "Remover da tela inicial" else "Adicionar à tela inicial"
-                    AlertDialog.Builder(this@MainActivity)
+                    AlertDialog.Builder(this@MainActivity, R.style.AppDialogTheme)
                         .setTitle(app.loadLabel(packageManager).toString())
                         .setItems(arrayOf(action, "Cancelar")) { _, which ->
                             if (which == 0) {
@@ -1688,7 +1980,8 @@ class MainActivity : Activity() {
                 setImageDrawable(app.loadIcon(packageManager))
                 scaleType = ImageView.ScaleType.FIT_CENTER
             }
-            item.addView(icon, LinearLayout.LayoutParams(dp(58), dp(58)))
+            val drawerIconSize = when (drawerSize) { 0 -> dp(48); 2 -> dp(70); else -> dp(58) }
+            item.addView(icon, LinearLayout.LayoutParams(drawerIconSize, drawerIconSize))
             item.addView(TextView(this).apply {
                 text = app.loadLabel(packageManager).toString()
                 textSize = 11f
@@ -1708,11 +2001,11 @@ class MainActivity : Activity() {
                 }, LinearLayout.LayoutParams(-1, dp(12)))
             }
             val params = GridLayout.LayoutParams(
-                GridLayout.spec(index / 5),
-                GridLayout.spec(index % 5, 1f)
+                GridLayout.spec(index / drawerColumns),
+                GridLayout.spec(index % drawerColumns, 1f)
             ).apply {
                 width = 0
-                height = dp(116)
+                height = when (drawerSize) { 0 -> dp(98); 2 -> dp(132); else -> dp(116) }
                 setMargins(dp(5), dp(5), dp(5), dp(5))
             }
             grid.addView(item, params)
