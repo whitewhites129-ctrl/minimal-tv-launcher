@@ -2,7 +2,7 @@ name: Build Android APK
 on:
   workflow_dispatch:
   push:
-    branches: [ "main", "rebuild/launcher-core-v1", "rebuild/product-grade-foundation", "fix/app-drawer-icon" ]
+    branches: [ "main", "rebuild/launcher-core-v1", "rebuild/product-grade-foundation", "fix/app-drawer-icon", "feature/launcher-settings-weather" ]
 permissions:
   contents: read
 jobs:
@@ -46,7 +46,7 @@ jobs:
           gradle-version: '8.9'
 
       - name: Build debug APK for Realme Stick validation
-        if: (github.ref == 'refs/heads/rebuild/product-grade-foundation' || github.ref == 'refs/heads/fix/app-drawer-icon')
+        if: (github.ref == 'refs/heads/rebuild/product-grade-foundation' || github.ref == 'refs/heads/fix/app-drawer-icon' || github.ref == 'refs/heads/feature/launcher-settings-weather')
         run: gradle assembleDebug
       - name: Upload test APK
         if: (github.ref == 'refs/heads/rebuild/product-grade-foundation' || github.ref == 'refs/heads/fix/app-drawer-icon')
