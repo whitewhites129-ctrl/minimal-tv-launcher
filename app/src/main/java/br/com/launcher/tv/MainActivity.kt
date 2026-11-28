@@ -1463,7 +1463,7 @@ class MainActivity : Activity() {
         weatherPill.addView(weatherInfo)
         actions.addView(headerAction(R.drawable.ic_mic_modern, "Pesquisa por voz") { openVoice() })
         actions.addView(headerAction(R.drawable.ic_notifications_modern, "Notificações") { openNotificationsPanel() })
-        actions.addView(headerAction(R.drawable.ic_settings_modern, "Configurações") { showLauncherSettingsDialog() })
+        actions.addView(headerAction(R.drawable.ic_settings_modern, "Configurações do Launcher Lite") { showDrawerSettingsDialog() })
         val centeredHeader = FrameLayout(this).apply { clipChildren = false; clipToPadding = false }
         centeredHeader.addView(left, FrameLayout.LayoutParams(dp(230), -1, Gravity.LEFT or Gravity.CENTER_VERTICAL))
         centeredHeader.addView(weatherPill, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
