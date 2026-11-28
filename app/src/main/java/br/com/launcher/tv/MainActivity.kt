@@ -1969,13 +1969,13 @@ class MainActivity : Activity() {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER
             }
-            repeat(2) {
+            repeat(2) { column ->
                 val square = View(this).apply {
                     background = rounded(Color.rgb(211, 222, 235), 3, Color.TRANSPARENT)
                     isFocusable = false
                 }
                 iconRow.addView(square, LinearLayout.LayoutParams(dp(10), dp(10)).apply {
-                    if (this@repeat > 0) leftMargin = dp(5)
+                    if (column > 0) leftMargin = dp(5)
                 })
             }
             glyph.addView(iconRow, LinearLayout.LayoutParams(-2, dp(10)).apply {
