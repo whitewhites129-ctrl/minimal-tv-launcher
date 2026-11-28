@@ -15,12 +15,10 @@ android {
         applicationId = "br.com.launcher.tv"
         minSdk = 23
         targetSdk = 28
-        versionCode = 16
-        versionName = "0.7.0-beta.3"
+        versionCode = 17
+        versionName = "0.7.0-beta.4"
     }
 
-    // Keep targetSdk 28 for the launcher compatibility behavior being tested.
-    // Suppress only the release lint check that rejects this legacy target.
     lint {
         disable += "ExpiredTargetSdkVersion"
     }
