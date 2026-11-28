@@ -2370,30 +2370,32 @@ class MainActivity : Activity() {
             background = rounded(Color.rgb(20, 29, 42), 16, Color.rgb(60, 76, 96))
         }
 
-        // Ícone real em 2x2: cada quadrado é uma View independente.
-        // Evita falha de desenho do Canvas em alguns firmwares de Android TV.
+        // Ícone de gaveta em grade 3x3, desenhado com Views independentes
+        // para manter a renderização estável em diferentes firmwares de Android TV.
         val glyph = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
             isFocusable = false
             importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
         }
-        repeat(2) {
+        for (rowIndex in 0 until 3) {
             val iconRow = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER
             }
-            repeat(2) { column ->
+            for (columnIndex in 0 until 3) {
                 val square = View(this).apply {
-                    background = rounded(Color.rgb(211, 222, 235), 3, Color.TRANSPARENT)
+                    val squareColor = if (rowIndex == 1 && columnIndex == 1)
+                        Color.rgb(88, 195, 229) else Color.rgb(211, 222, 235)
+                    background = rounded(squareColor, 3, Color.TRANSPARENT)
                     isFocusable = false
                 }
-                iconRow.addView(square, LinearLayout.LayoutParams(dp(10), dp(10)).apply {
-                    if (column > 0) leftMargin = dp(5)
+                iconRow.addView(square, LinearLayout.LayoutParams(dp(7), dp(7)).apply {
+                    if (columnIndex > 0) leftMargin = dp(4)
                 })
             }
-            glyph.addView(iconRow, LinearLayout.LayoutParams(-2, dp(10)).apply {
-                if (glyph.childCount > 0) topMargin = dp(5)
+            glyph.addView(iconRow, LinearLayout.LayoutParams(-2, dp(7)).apply {
+                if (glyph.childCount > 0) topMargin = dp(4)
             })
         }
         val glyphHolder = FrameLayout(this).apply {
