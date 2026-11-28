@@ -888,7 +888,7 @@ class MainActivity : Activity() {
         dialog.show()
         dialog.window?.setLayout(-1, -1)
         renderTab(0)
-        close.requestFocus()
+        tabs.getChildAt(0)?.requestFocus()
     }
 
     private fun showLauncherSettingsDialog() {
@@ -1875,7 +1875,12 @@ class MainActivity : Activity() {
                 v.background = rounded(Color.rgb(16, 24, 38), 18,
                     if (focused) accent else Color.rgb(45, 65, 90))
             }
-            setOnClickListener { refreshWeather() }
+            setOnClickListener {
+                screenRoot.removeView(page)
+                weatherPage = null
+                refreshWeather()
+                openWeatherScreen()
+            }
         }
         currentWeatherCard.addView(TextView(this).apply {
             text = weatherIcon.text.toString(); textSize = 23f; setTextColor(Color.WHITE)
@@ -2547,21 +2552,12 @@ class MainActivity : Activity() {
                 ellipsize = android.text.TextUtils.TruncateAt.END
                 setPadding(0, dp(5), 0, 0)
             }, LinearLayout.LayoutParams(-1, dp(34)))
-            if (pinned) {
-                item.addView(TextView(this).apply {
-                    text = "NA HOME"
-                    textSize = 8f
-                    letterSpacing = 0.08f
-                    setTextColor(Color.rgb(126, 213, 245))
-                    gravity = Gravity.CENTER
-                }, LinearLayout.LayoutParams(-1, dp(12)))
-            }
             val params = GridLayout.LayoutParams(
                 GridLayout.spec(index / drawerColumns),
                 GridLayout.spec(index % drawerColumns, 1f)
             ).apply {
                 width = 0
-                height = when (drawerSize) { 0 -> dp(98); 2 -> dp(132); else -> dp(116) }
+                height = when (drawerSize) { 0 -> dp(86); 2 -> dp(120); else -> dp(104) }
                 setMargins(dp(5), dp(5), dp(5), dp(5))
             }
             grid.addView(item, params)
