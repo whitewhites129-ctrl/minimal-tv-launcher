@@ -533,9 +533,9 @@ class MainActivity : Activity() {
                     9,
                     if (selected) Color.rgb(66, 170, 205) else Color.rgb(48, 63, 82)
                 )
-                chip.setTextColor(if (selected) Color.WHITE else Color.rgb(185, 201, 221))
+                chip.setTextColor(if (selected) Color.WHITE else Color.rgb(183, 195, 209))
                 chip.alpha = if (selected) 1f else 0.82f
-                chip.elevation = if (selected) dp(1).toFloat() else 0f
+                chip.elevation = 0f
                 chip.contentDescription = options.first { it.second == optionValue }.first +
                     if (selected) ", selecionado" else ""
             }
@@ -572,129 +572,238 @@ class MainActivity : Activity() {
 
     private fun showDrawerSettingsDialog() {
         val dialog = android.app.Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+        val bg = Color.rgb(12, 17, 27)
+        val panel = Color.rgb(22, 30, 43)
+        val border = Color.rgb(55, 69, 88)
+        val selected = Color.rgb(48, 67, 88)
+        val accentSoft = Color.rgb(139, 170, 198)
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.rgb(7, 12, 21))
-            setPadding(dp(38), dp(28), dp(38), dp(22))
+            setBackgroundColor(bg)
+            setPadding(dp(34), dp(22), dp(34), dp(22))
         }
-        val top = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        val header = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
         val titleBlock = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         titleBlock.addView(TextView(this).apply {
-            text = "Personalizar"; textSize = 25f
-            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL); setTextColor(Color.rgb(245, 248, 252))
+            text = "Configurações"; textSize = 26f
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            setTextColor(Color.rgb(239, 243, 248))
         })
         titleBlock.addView(TextView(this).apply {
-            text = "Organização e aparência da tela inicial"
-            textSize = 13f; setTextColor(Color.rgb(143, 161, 183)); setPadding(0, dp(5), 0, 0)
+            text = "Personalize a organização e a aparência do Launcher Lite"
+            textSize = 12f; setTextColor(Color.rgb(153, 166, 183)); setPadding(0, dp(3), 0, 0)
         })
-        top.addView(titleBlock, LinearLayout.LayoutParams(0, dp(58), 1f))
+        header.addView(titleBlock, LinearLayout.LayoutParams(0, dp(58), 1f))
         val close = TextView(this).apply {
-            text = "✕"; textSize = 22f; gravity = Gravity.CENTER
-            setTextColor(Color.rgb(183, 199, 218)); isFocusable = true; isClickable = true
-            background = rounded(Color.rgb(19, 29, 44), 13, Color.rgb(49, 67, 90))
+            text = "✕"; textSize = 21f; gravity = Gravity.CENTER
+            setTextColor(Color.rgb(190, 202, 216)); isFocusable = true; isClickable = true
+            background = rounded(panel, 12, border)
             contentDescription = "Fechar configurações"
-            setOnFocusChangeListener { view, focused ->
-                view.background = rounded(
-                    if (focused) Color.rgb(15, 93, 126) else Color.rgb(19, 29, 44),
-                    13, if (focused) Color.rgb(79, 218, 255) else Color.rgb(49, 67, 90)
-                )
-                (view as TextView).setTextColor(if (focused) Color.WHITE else Color.rgb(183, 199, 218))
-                view.scaleX = if (focused) 1.08f else 1f
-                view.scaleY = if (focused) 1.08f else 1f
-                view.elevation = if (focused) dp(6).toFloat() else 0f
+            setOnFocusChangeListener { v, focused ->
+                v.background = rounded(if (focused) selected else panel, 12, if (focused) accentSoft else border)
+                (v as TextView).setTextColor(Color.WHITE)
+                v.scaleX = if (focused) 1.035f else 1f
+                v.scaleY = if (focused) 1.035f else 1f
             }
             setOnClickListener { dialog.dismiss() }
         }
-        top.addView(close, LinearLayout.LayoutParams(dp(48), dp(44)))
-        root.addView(top)
-        val scroll = android.widget.ScrollView(this).apply {
-            isFillViewport = false; isVerticalScrollBarEnabled = false
-            overScrollMode = View.OVER_SCROLL_NEVER; setPadding(0, dp(8), 0, dp(8))
-        }
-        val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        addSettingsSection(content, "Canais favoritos", "Organize os canais em uma grade. A área se ajusta à quantidade de fileiras.")
-        addSettingsChoices(content, "Canais por fileira", "channel_columns",
-            listOf("3" to 3, "4" to 4, "5" to 5, "6" to 6, "7" to 7), 5) { applyHomeLayoutPreferences() }
-        addSettingsChoices(content, "Fileiras de canais", "channel_rows",
-            listOf("1" to 1, "2" to 2, "3" to 3), 1) { applyHomeLayoutPreferences() }
-        addSettingsChoices(content, "Tamanho dos cards de canais", "channel_size",
-            listOf("Pequeno" to 0, "Médio" to 1, "Grande" to 2), 1) { applyHomeLayoutPreferences() }
+        header.addView(close, LinearLayout.LayoutParams(dp(48), dp(44)))
+        root.addView(header)
 
-        addSettingsSection(content, "Aplicativos da tela inicial", "As mesmas colunas também organizam a gaveta completa de aplicativos.")
-        addSettingsChoices(content, "Apps por fileira", "home_app_columns",
-            listOf("3" to 3, "4" to 4, "5" to 5, "6" to 6, "7" to 7), 5) { applyHomeLayoutPreferences() }
-        addSettingsChoices(content, "Fileiras de aplicativos", "home_app_rows",
-            listOf("1" to 1, "2" to 2, "3" to 3), 2) { applyHomeLayoutPreferences() }
-        addSettingsChoices(content, "Tamanho dos cards de aplicativos", "home_app_size",
-            listOf("Pequeno" to 0, "Médio" to 1, "Grande" to 2), 1) { applyHomeLayoutPreferences() }
-
-        addSettingsSection(content, "Clima", "A previsão é localizada pelo CEP informado.")
-        val cepRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(5), 0, dp(5)) }
-        val cepField = EditText(this).apply {
-            setText(currentWeatherCep()); hint = "CEP com 8 números"; textSize = 16f
-            setTextColor(Color.WHITE); setHintTextColor(Color.rgb(116, 135, 159))
-            inputType = InputType.TYPE_CLASS_NUMBER; setSingleLine(true)
-            setPadding(dp(12), 0, dp(12), 0)
-            background = rounded(Color.rgb(17, 27, 42), 12, Color.rgb(48, 68, 91))
+        val tabs = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(14), 0, dp(14))
         }
-        cepRow.addView(cepField, LinearLayout.LayoutParams(0, dp(46), 1f).apply { rightMargin = dp(10) })
-        val saveCep = TextView(this).apply {
-            text = "Salvar"; textSize = 13f
-            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-            gravity = Gravity.CENTER; setTextColor(Color.WHITE); isFocusable = true; isClickable = true
-            background = rounded(Color.rgb(12, 91, 126), 12, Color.rgb(43, 186, 224))
-            setPadding(dp(18), 0, dp(18), 0)
-            setOnClickListener {
-                val cep = cepField.text.toString().filter { it.isDigit() }
-                if (cep.length != 8) Toast.makeText(this@MainActivity, "Digite um CEP válido com 8 números.", Toast.LENGTH_SHORT).show()
-                else {
-                    prefs.edit().putString("weather_cep", cep).apply()
-                    cachedWeatherLocation = null
-                    weatherUpdatedText.text = "Atualizando para $cep"
-                    refreshWeather()
-                    Toast.makeText(this@MainActivity, "CEP salvo. Atualizando previsão…", Toast.LENGTH_SHORT).show()
+        val contentScroll = android.widget.ScrollView(this).apply {
+            isFillViewport = true
+            isVerticalScrollBarEnabled = false
+            overScrollMode = View.OVER_SCROLL_NEVER
+            setPadding(0, dp(3), 0, dp(4))
+        }
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(2), dp(2), dp(2), dp(12))
+        }
+        contentScroll.addView(content, ViewGroup.LayoutParams(-1, -2))
+
+        val tabNames = listOf("Canais", "Aplicativos", "Aparência", "Clima")
+        val tabViews = mutableListOf<TextView>()
+        var activeTab = 0
+        fun sectionCard(parent: LinearLayout, title: String, key: String, options: List<Pair<String, Int>>, defaultValue: Int, onChanged: () -> Unit = {}) {
+            val card = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(16), dp(10), dp(16), dp(14))
+                background = rounded(panel, 15, border)
+            }
+            addSettingsChoices(card, title, key, options, defaultValue, onChanged)
+            parent.addView(card, LinearLayout.LayoutParams(0, -2, 1f).apply {
+                leftMargin = dp(6); rightMargin = dp(6); bottomMargin = dp(12)
+            })
+        }
+        fun pairRow(left: () -> Unit, right: () -> Unit) {
+            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.TOP }
+            left()
+            right()
+            content.addView(row)
+        }
+        fun renderTab(index: Int) {
+            activeTab = index
+            tabViews.forEachIndexed { i, tab ->
+                val isSelected = i == index
+                tab.background = rounded(if (isSelected) selected else panel, 12, if (isSelected) accentSoft else border)
+                tab.setTextColor(if (isSelected) Color.WHITE else Color.rgb(183, 195, 209))
+                tab.alpha = if (isSelected) 1f else 0.88f
+            }
+            content.removeAllViews()
+            when (index) {
+                0 -> {
+                    addSettingsSection(content, "Canais favoritos", "Defina como os canais aparecem na tela inicial.")
+                    val row1 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+                    sectionCard(row1, "Canais por fileira", "channel_columns", listOf("3" to 3, "4" to 4, "5" to 5, "6" to 6, "7" to 7), 5) { applyHomeLayoutPreferences() }
+                    sectionCard(row1, "Fileiras de canais", "channel_rows", listOf("1" to 1, "2" to 2, "3" to 3), 1) { applyHomeLayoutPreferences() }
+                    content.addView(row1)
+                    val row2 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+                    sectionCard(row2, "Tamanho dos cards", "channel_size", listOf("Pequeno" to 0, "Médio" to 1, "Grande" to 2), 1) { applyHomeLayoutPreferences() }
+                    content.addView(row2)
+                }
+                1 -> {
+                    addSettingsSection(content, "Aplicativos da tela inicial", "Organize os aplicativos fixados e a gaveta completa.")
+                    val row1 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+                    sectionCard(row1, "Apps por fileira", "home_app_columns", listOf("3" to 3, "4" to 4, "5" to 5, "6" to 6, "7" to 7), 5) { applyHomeLayoutPreferences() }
+                    sectionCard(row1, "Fileiras de aplicativos", "home_app_rows", listOf("1" to 1, "2" to 2, "3" to 3), 2) { applyHomeLayoutPreferences() }
+                    content.addView(row1)
+                    val row2 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+                    sectionCard(row2, "Tamanho dos cards", "home_app_size", listOf("Pequeno" to 0, "Médio" to 1, "Grande" to 2), 1) { applyHomeLayoutPreferences() }
+                    content.addView(row2)
+                }
+                2 -> {
+                    addSettingsSection(content, "Aparência", "Ajustes visuais dos elementos da tela inicial.")
+                    val info = LinearLayout(this).apply {
+                        orientation = LinearLayout.VERTICAL
+                        setPadding(dp(18), dp(16), dp(18), dp(16))
+                        background = rounded(panel, 15, border)
+                    }
+                    info.addView(TextView(this).apply {
+                        text = "Estilo visual"; textSize = 15f
+                        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                        setTextColor(Color.rgb(229, 236, 244))
+                    })
+                    info.addView(TextView(this).apply {
+                        text = "O Launcher Lite utiliza uma paleta escura e discreta. O destaque azul acinzentado aparece apenas nos itens em foco."
+                        textSize = 12f; setTextColor(Color.rgb(153, 168, 187))
+                        setPadding(0, dp(7), 0, 0)
+                    })
+                    content.addView(info, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
+                    val reset = TextView(this).apply {
+                        text = "Restaurar configurações padrão"; textSize = 13f
+                        setTextColor(Color.rgb(218, 226, 236)); gravity = Gravity.CENTER
+                        isFocusable = true; isClickable = true
+                        background = rounded(panel, 12, border)
+                        setPadding(dp(16), dp(13), dp(16), dp(13))
+                        setOnFocusChangeListener { v, focused -> v.background = rounded(if (focused) selected else panel, 12, if (focused) accentSoft else border) }
+                        setOnClickListener {
+                            prefs.edit()
+                                .putInt("channel_columns", 5).putInt("channel_rows", 1).putInt("channel_size", 1)
+                                .putInt("home_app_columns", 5).putInt("home_app_rows", 2).putInt("home_app_size", 1)
+                                .putString("weather_cep", "09843790").apply()
+                            cachedWeatherLocation = null
+                            applyHomeLayoutPreferences(); refreshWeather()
+                            renderTab(activeTab)
+                            Toast.makeText(this@MainActivity, "Preferências padrão restauradas.", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    content.addView(reset, LinearLayout.LayoutParams(-1, -2))
+                    val system = TextView(this).apply {
+                        text = "Configurações do sistema"; textSize = 13f
+                        setTextColor(Color.rgb(218, 226, 236)); gravity = Gravity.CENTER
+                        isFocusable = true; isClickable = true
+                        background = rounded(panel, 12, border)
+                        setPadding(dp(16), dp(13), dp(16), dp(13))
+                        setOnFocusChangeListener { v, focused -> v.background = rounded(if (focused) selected else panel, 12, if (focused) accentSoft else border) }
+                        setOnClickListener { dialog.dismiss(); showLauncherSettingsDialog() }
+                    }
+                    content.addView(system, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10) })
+                }
+                3 -> {
+                    addSettingsSection(content, "Clima", "A previsão é localizada pelo CEP informado.")
+                    val cepCard = LinearLayout(this).apply {
+                        orientation = LinearLayout.VERTICAL
+                        setPadding(dp(18), dp(16), dp(18), dp(16))
+                        background = rounded(panel, 15, border)
+                    }
+                    cepCard.addView(TextView(this).apply {
+                        text = "CEP da localização"; textSize = 14f
+                        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                        setTextColor(Color.rgb(229, 236, 244))
+                    })
+                    val cepRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(10), 0, 0) }
+                    val cepField = EditText(this).apply {
+                        setText(currentWeatherCep()); hint = "CEP com 8 números"; textSize = 16f
+                        setTextColor(Color.WHITE); setHintTextColor(Color.rgb(132, 147, 166))
+                        inputType = InputType.TYPE_CLASS_NUMBER; setSingleLine(true)
+                        setPadding(dp(12), 0, dp(12), 0)
+                        background = rounded(Color.rgb(14, 21, 32), 10, border)
+                    }
+                    cepRow.addView(cepField, LinearLayout.LayoutParams(0, dp(48), 1f).apply { rightMargin = dp(10) })
+                    val saveCep = TextView(this).apply {
+                        text = "Salvar"; textSize = 13f
+                        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                        gravity = Gravity.CENTER; setTextColor(Color.WHITE); isFocusable = true; isClickable = true
+                        background = rounded(selected, 10, accentSoft)
+                        setPadding(dp(18), 0, dp(18), 0)
+                        setOnFocusChangeListener { v, focused -> v.background = rounded(if (focused) Color.rgb(61, 80, 101) else selected, 10, if (focused) Color.rgb(190, 205, 221) else accentSoft) }
+                        setOnClickListener {
+                            val cep = cepField.text.toString().filter { it.isDigit() }
+                            if (cep.length != 8) Toast.makeText(this@MainActivity, "Digite um CEP válido com 8 números.", Toast.LENGTH_SHORT).show()
+                            else {
+                                prefs.edit().putString("weather_cep", cep).apply()
+                                cachedWeatherLocation = null
+                                weatherUpdatedText.text = "Atualizando para $cep"
+                                refreshWeather()
+                                Toast.makeText(this@MainActivity, "CEP salvo. Atualizando previsão…", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
+                    cepRow.addView(saveCep, LinearLayout.LayoutParams(dp(105), dp(48)))
+                    cepCard.addView(cepRow)
+                    cepCard.addView(TextView(this).apply {
+                        text = "Padrão: 09843790"; textSize = 10f
+                        setTextColor(Color.rgb(132, 147, 166)); setPadding(0, dp(8), 0, 0)
+                    })
+                    content.addView(cepCard, LinearLayout.LayoutParams(-1, -2))
                 }
             }
         }
-        cepRow.addView(saveCep, LinearLayout.LayoutParams(dp(105), dp(46)))
-        content.addView(cepRow)
-        content.addView(TextView(this).apply {
-            text = "Padrão: 09843790"; textSize = 10f; setTextColor(Color.rgb(117, 137, 163))
-        })
-
-        val footer = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(18), 0, dp(6))
-        }
-        val reset = TextView(this).apply {
-            text = "Restaurar padrão"; textSize = 12f; setTextColor(Color.rgb(171, 194, 217))
-            gravity = Gravity.CENTER; isFocusable = true; isClickable = true
-            background = rounded(Color.rgb(19, 29, 44), 11, Color.rgb(49, 67, 90))
-            setPadding(dp(14), dp(11), dp(14), dp(11))
-            setOnClickListener {
-                prefs.edit()
-                    .putInt("channel_columns", 5).putInt("channel_rows", 1).putInt("channel_size", 1)
-                    .putInt("home_app_columns", 5).putInt("home_app_rows", 2).putInt("home_app_size", 1)
-                    .putString("weather_cep", "09843790").apply()
-                cepField.setText("09843790"); cachedWeatherLocation = null
-                applyHomeLayoutPreferences(); refreshWeather()
-                Toast.makeText(this@MainActivity, "Preferências padrão restauradas.", Toast.LENGTH_SHORT).show()
+        tabNames.forEachIndexed { index, name ->
+            val tab = TextView(this).apply {
+                text = name; textSize = 13f
+                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                gravity = Gravity.CENTER
+                isFocusable = true; isClickable = true
+                setPadding(dp(12), dp(11), dp(12), dp(11))
+                background = rounded(panel, 12, border)
+                setOnFocusChangeListener { v, focused ->
+                    if (index != activeTab) v.background = rounded(if (focused) Color.rgb(42, 54, 70) else panel, 12, if (focused) accentSoft else border)
+                }
+                setOnClickListener { renderTab(index) }
             }
+            tabViews.add(tab)
+            tabs.addView(tab, LinearLayout.LayoutParams(0, dp(46), 1f).apply {
+                if (index > 0) leftMargin = dp(8)
+            })
         }
-        footer.addView(reset)
-        footer.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
-        footer.addView(TextView(this).apply {
-            text = "Sistema ⚙"; textSize = 12f; setTextColor(Color.rgb(171, 194, 217))
-            gravity = Gravity.CENTER; isFocusable = true; isClickable = true
-            background = rounded(Color.rgb(19, 29, 44), 11, Color.rgb(49, 67, 90))
-            setPadding(dp(14), dp(11), dp(14), dp(11))
-            setOnClickListener { dialog.dismiss(); showLauncherSettingsDialog() }
-        })
-        content.addView(footer)
-        scroll.addView(content, ViewGroup.LayoutParams(-1, -2))
-        root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
+        root.addView(tabs)
+        root.addView(contentScroll, LinearLayout.LayoutParams(-1, 0, 1f))
         dialog.setContentView(root)
         dialog.setOnDismissListener { resetIdleTimer() }
-        dialog.show(); dialog.window?.setLayout(-1, -1); close.requestFocus()
+        dialog.show()
+        dialog.window?.setLayout(-1, -1)
+        renderTab(0)
+        close.requestFocus()
     }
 
     private fun showLauncherSettingsDialog() {
@@ -1844,39 +1953,35 @@ class MainActivity : Activity() {
     private fun addAllAppsCard(width: Int, height: Int, row: Int, col: Int) {
         val card = createCard().apply {
             setPadding(dp(8), dp(7), dp(8), dp(7))
-            background = rounded(Color.rgb(12, 29, 43), 20, Color.rgb(39, 111, 145))
+            background = rounded(Color.rgb(20, 29, 42), 16, Color.rgb(60, 76, 96))
         }
-        // Four rounded tiles: the selected option 2 from the icon concepts.
+        // Ícone da gaveta: quatro quadrados em grade 2x2, conforme a opção escolhida.
         val glyph = object : View(this) {
             private val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
                 style = android.graphics.Paint.Style.FILL
             }
             override fun onDraw(canvas: android.graphics.Canvas) {
                 super.onDraw(canvas)
-                val cell = dp(7).toFloat()
-                val gap = dp(4).toFloat()
-                val total = cell * 3f + gap * 2f
+                val cell = dp(11).toFloat()
+                val gap = dp(5).toFloat()
+                val total = cell * 2f + gap
                 val startX = (width - total) / 2f
                 val startY = (height - total) / 2f
-                for (row in 0..2) {
-                    for (col in 0..2) {
-                        paint.color = when {
-                            row == 1 && col == 1 -> Color.rgb(72, 190, 224)
-                            (row + col) % 2 == 0 -> Color.rgb(242, 247, 252)
-                            else -> Color.rgb(175, 202, 222)
-                        }
+                for (row in 0..1) {
+                    for (col in 0..1) {
+                        paint.color = Color.rgb(211, 222, 235)
                         val left = startX + col * (cell + gap)
                         val top = startY + row * (cell + gap)
-                        canvas.drawRoundRect(left, top, left + cell, top + cell, dp(2).toFloat(), dp(2).toFloat(), paint)
+                        canvas.drawRoundRect(left, top, left + cell, top + cell, dp(3).toFloat(), dp(3).toFloat(), paint)
                     }
                 }
             }
         }.apply {
             isFocusable = false
-            contentDescription = "Ícone de quatro quadrados da gaveta de aplicativos"
+            contentDescription = "Ícone com quatro quadrados da gaveta de aplicativos"
         }
         val glyphHolder = FrameLayout(this).apply {
-            background = rounded(Color.rgb(25, 43, 61), 14, Color.rgb(62, 103, 132))
+            background = rounded(Color.rgb(29, 39, 53), 12, Color.rgb(68, 82, 101))
             addView(glyph, FrameLayout.LayoutParams(dp(38), dp(38), Gravity.CENTER))
         }
         card.addView(glyphHolder, LinearLayout.LayoutParams(dp(52), dp(52)))
