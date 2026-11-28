@@ -104,7 +104,7 @@ class MainActivity : Activity() {
         refreshClock()
         resetIdleTimer()
         // Reopen the guided setup once after an app update that changes setup steps.
-        if (prefs.getInt("setup_wizard_version", 0) < 10) {
+        if (prefs.getInt("setup_wizard_version", 0) < 11) {
             prefs.edit()
                 .putInt("setup_wizard_step", 0)
                 .putBoolean("setup_wizard_finished", false)
@@ -867,130 +867,433 @@ class MainActivity : Activity() {
 
     private var setupDialog: AlertDialog? = null
 
+    private fun isAccessibilityServiceEnabled(): Boolean {
+        val expected = android.content.ComponentName(this, LauncherAccessibilityService::class.java).flattenToString()
+        val enabledServices = Settings.Secure.getString(
+            contentResolver,
+            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+        ) ?: return false
+        return enabledServices.split(':').any { it.equals(expected, ignoreCase = true) }
+    }
+
+    private fun createSetupQrBitmap(size: Int): android.graphics.Bitmap? {
+        return try {
+            val hints = mapOf(
+                com.google.zxing.EncodeHintType.ERROR_CORRECTION to com.google.zxing.qrcode.decoder.ErrorCorrectionLevel.M,
+                com.google.zxing.EncodeHintType.MARGIN to 1
+            )
+            val matrix = com.google.zxing.qrcode.QRCodeWriter().encode(
+                "appops set br.com.launcher.tv ACCESS_RESTRICTED_SETTINGS allow",
+                com.google.zxing.BarcodeFormat.QR_CODE,
+                size,
+                size,
+                hints
+            )
+            val bitmap = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.RGB_565)
+            for (y in 0 until size) {
+                for (x in 0 until size) {
+                    bitmap.setPixel(x, y, if (matrix[x, y]) Color.BLACK else Color.WHITE)
+                }
+            }
+            bitmap
+        } catch (error: Exception) {
+            Log.e("LauncherLite.Setup", "Unable to generate setup QR code", error)
+            null
+        }
+    }
+
+    private var setupDialog: AlertDialog? = null
+
     private fun showSetupWizard() {
         if (isFinishing || setupDialog?.isShowing == true) return
 
-        val step = prefs.getInt("setup_wizard_step", 0).coerceIn(0, 2)
-        val title: String
-        val message: String
-        val actionLabel: String
-        val canSkip = step == 2
+        val step = prefs.getInt("setup_wizard_step", 0).coerceIn(0, 5)
+        val homeEnabled = isHomeRoleHeld()
+        val accessibilityEnabled = isAccessibilityServiceEnabled()
+        val notificationsEnabled = isNotificationAccessEnabled()
+        val command = "appops set br.com.launcher.tv ACCESS_RESTRICTED_SETTINGS allow"
+        val totalSteps = 5
+
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(30), dp(26), dp(30), dp(22))
+            background = GradientDrawable().apply {
+                setColor(Color.rgb(10, 16, 27))
+                cornerRadius = dp(22).toFloat()
+                setStroke(dp(1), Color.rgb(39, 56, 77))
+            }
+            isFocusable = false
+        }
+
+        val topLine = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        val brand = TextView(this).apply {
+            text = "LAUNCHER LITE  /  CONFIGURAÇÃO"
+            textSize = 11f
+            letterSpacing = 0.13f
+            setTextColor(Color.rgb(92, 190, 226))
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        }
+        val stepLabel = TextView(this).apply {
+            text = if (step == 0) "BOAS-VINDAS" else "PASSO " + step + " DE " + totalSteps
+            textSize = 10f
+            letterSpacing = 0.08f
+            setTextColor(Color.rgb(151, 170, 194))
+            gravity = Gravity.RIGHT or Gravity.CENTER_VERTICAL
+        }
+        topLine.addView(brand, LinearLayout.LayoutParams(0, -2, 1f))
+        topLine.addView(stepLabel)
+        root.addView(topLine)
+
+        val progressRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, dp(15), 0, dp(18))
+        }
+        for (index in 1..totalSteps) {
+            val segment = View(this).apply {
+                background = GradientDrawable().apply {
+                    cornerRadius = dp(4).toFloat()
+                    setColor(if (step > 0 && index <= step) Color.rgb(47, 164, 211) else Color.rgb(39, 52, 70))
+                }
+            }
+            progressRow.addView(segment, LinearLayout.LayoutParams(0, dp(4), 1f).apply {
+                if (index > 1) leftMargin = dp(6)
+            })
+        }
+        root.addView(progressRow)
+
+        val title = when (step) {
+            0 -> "Sua TV, do seu jeito."
+            1 -> "Defina a tela inicial"
+            2 -> "Libere o acesso especial"
+            3 -> "Ative a acessibilidade"
+            4 -> "Notificações na tela inicial"
+            else -> "Tudo pronto para começar"
+        }
+        val subtitle = when (step) {
+            0 -> "Vamos preparar o Launcher Lite. Em poucos passos, você configura a navegação e conhece os recursos principais."
+            1 -> if (homeEnabled) "O Launcher Lite já está selecionado como tela inicial padrão." else "Defina o Launcher Lite como tela inicial para abrir sua TV diretamente nele ao pressionar HOME."
+            2 -> if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                "Em alguns aparelhos, o Android bloqueia a acessibilidade de apps instalados por APK. Use o QR Code abaixo para copiar o comando e liberar essa configuração."
+            } else {
+                "Nesta versão do Android, esta autorização adicional normalmente não é necessária. Você já pode seguir para a acessibilidade."
+            }
+            3 -> if (accessibilityEnabled) "Acessibilidade já está ativa. O serviço permite ao Launcher Lite encaminhar a tecla HOME." else "Ative o serviço Launcher Lite nas configurações do Android. Essa autorização é necessária para o recurso de encaminhamento da tecla HOME."
+            4 -> if (notificationsEnabled) "Acesso às notificações autorizado. Os avisos compatíveis poderão aparecer no launcher." else "Permita o acesso somente se quiser visualizar notificações na tela inicial. Esta etapa é opcional."
+            else -> "O Launcher Lite está preparado. Você pode ajustar aparência, quantidade de linhas, canais, aplicativos e clima nas configurações."
+        }
+
+        val titleView = TextView(this).apply {
+            text = title
+            textSize = 27f
+            setTextColor(Color.rgb(245, 248, 253))
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        }
+        root.addView(titleView)
+        val subtitleView = TextView(this).apply {
+            text = subtitle
+            textSize = 15f
+            setTextColor(Color.rgb(174, 190, 211))
+            setLineSpacing(dp(4).toFloat(), 1.0f)
+            setPadding(0, dp(9), 0, dp(19))
+        }
+        root.addView(subtitleView)
+
+        fun cardView(): LinearLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(18), dp(16), dp(18), dp(16))
+            background = GradientDrawable().apply {
+                setColor(Color.rgb(18, 28, 43))
+                cornerRadius = dp(16).toFloat()
+                setStroke(dp(1), Color.rgb(43, 61, 83))
+            }
+        }
+
+        fun addCardTitle(parent: LinearLayout, text: String) {
+            parent.addView(TextView(this).apply {
+                this.text = text
+                textSize = 15f
+                setTextColor(Color.rgb(239, 245, 253))
+                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            })
+        }
+
+        fun addCardBody(parent: LinearLayout, text: String) {
+            parent.addView(TextView(this).apply {
+                this.text = text
+                textSize = 13f
+                setTextColor(Color.rgb(163, 181, 204))
+                setLineSpacing(dp(3).toFloat(), 1f)
+                setPadding(0, dp(5), 0, 0)
+            })
+        }
+
+        val mainCard = cardView()
+        when (step) {
+            0 -> {
+                addCardTitle(mainCard, "O que você vai encontrar")
+                val featureRows = listOf(
+                    "APPS E CANAIS" to "Organize seus aplicativos e atalhos favoritos na tela inicial.",
+                    "CLIMA E NOTIFICAÇÕES" to "Consulte o clima e acompanhe avisos compatíveis.",
+                    "PERSONALIZAÇÃO" to "Ajuste aparência, linhas, cartões e organização."
+                )
+                featureRows.forEachIndexed { index, item ->
+                    val line = LinearLayout(this).apply {
+                        orientation = LinearLayout.VERTICAL
+                        setPadding(0, if (index == 0) dp(12) else dp(10), 0, 0)
+                    }
+                    line.addView(TextView(this).apply {
+                        text = item.first
+                        textSize = 10f
+                        letterSpacing = 0.1f
+                        setTextColor(Color.rgb(76, 184, 222))
+                        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                    })
+                    addCardBody(line, item.second)
+                    mainCard.addView(line)
+                }
+            }
+            1 -> {
+                addCardTitle(mainCard, if (homeEnabled) "Tela inicial configurada" else "Como definir o Launcher Lite")
+                addCardBody(mainCard, if (homeEnabled) {
+                    "Nenhuma alteração é necessária. Toque em continuar para revisar as permissões."
+                } else {
+                    "Ao abrir a tela do Android, escolha Launcher Lite na lista de aplicativos de início e confirme. O launcher original continuará instalado."
+                })
+            }
+            2 -> {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                    val qrRow = LinearLayout(this).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        gravity = Gravity.CENTER_VERTICAL
+                    }
+                    val qrImage = ImageView(this).apply {
+                        setImageBitmap(createSetupQrBitmap(360))
+                        scaleType = ImageView.ScaleType.FIT_CENTER
+                        setPadding(dp(9), dp(9), dp(9), dp(9))
+                        background = GradientDrawable().apply {
+                            setColor(Color.WHITE)
+                            cornerRadius = dp(12).toFloat()
+                        }
+                        contentDescription = "QR Code com comando para liberar configurações restritas"
+                    }
+                    qrRow.addView(qrImage, LinearLayout.LayoutParams(dp(178), dp(178)))
+                    val instructions = LinearLayout(this).apply {
+                        orientation = LinearLayout.VERTICAL
+                        setPadding(dp(18), 0, 0, 0)
+                        gravity = Gravity.CENTER_VERTICAL
+                    }
+                    addCardTitle(instructions, "Use o celular para copiar")
+                    addCardBody(instructions, "1. Aponte a câmera para o QR Code.\n2. Toque na opção para copiar o texto identificado.\n3. Abra o Bugjaeger conectado à TV e cole o comando no terminal.")
+                    val commandView = TextView(this).apply {
+                        text = command
+                        textSize = 11f
+                        setTextColor(Color.rgb(215, 228, 243))
+                        setPadding(dp(10), dp(9), dp(10), dp(9))
+                        setTextIsSelectable(true)
+                        background = GradientDrawable().apply {
+                            setColor(Color.rgb(8, 14, 23))
+                            cornerRadius = dp(8).toFloat()
+                        }
+                    }
+                    instructions.addView(commandView, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10) })
+                    val copyButton = TextView(this).apply {
+                        text = "COPIAR COMANDO NA TV"
+                        textSize = 10f
+                        letterSpacing = 0.04f
+                        gravity = Gravity.CENTER
+                        setTextColor(Color.WHITE)
+                        setPadding(dp(12), dp(10), dp(12), dp(10))
+                        isFocusable = true
+                        isClickable = true
+                        background = GradientDrawable().apply {
+                            setColor(Color.rgb(34, 85, 119))
+                            cornerRadius = dp(9).toFloat()
+                        }
+                        setOnClickListener {
+                            val clipboard = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Comando Launcher Lite", command))
+                            Toast.makeText(this@MainActivity, "Comando copiado", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    instructions.addView(copyButton, LinearLayout.LayoutParams(-1, dp(40)).apply { topMargin = dp(9) })
+                    qrRow.addView(instructions, LinearLayout.LayoutParams(0, -2, 1f))
+                    mainCard.addView(qrRow)
+                    mainCard.addView(TextView(this).apply {
+                        text = "A leitura do QR Code não executa o comando. É necessário colá-lo e executá-lo no Bugjaeger."
+                        textSize = 11f
+                        setTextColor(Color.rgb(136, 157, 183))
+                        setPadding(0, dp(12), 0, 0)
+                    })
+                } else {
+                    addCardTitle(mainCard, "Esta etapa pode ser ignorada")
+                    addCardBody(mainCard, "Seu Android não exige este desbloqueio adicional. Continue para abrir as configurações de acessibilidade.")
+                }
+            }
+            3 -> {
+                addCardTitle(mainCard, if (accessibilityEnabled) "Serviço ativado" else "Onde ativar")
+                addCardBody(mainCard, if (accessibilityEnabled) {
+                    "O serviço Launcher Lite aparece como ativado. Você pode continuar."
+                } else {
+                    "Na tela seguinte, procure Launcher Lite na lista de serviços instalados. Abra, habilite o serviço e confirme a mensagem de autorização do Android."
+                })
+                val status = TextView(this).apply {
+                    text = if (accessibilityEnabled) "✓  ATIVO" else "○  AGUARDANDO ATIVAÇÃO"
+                    textSize = 11f
+                    letterSpacing = 0.08f
+                    setTextColor(if (accessibilityEnabled) Color.rgb(100, 211, 155) else Color.rgb(231, 184, 95))
+                    setPadding(0, dp(13), 0, 0)
+                }
+                mainCard.addView(status)
+            }
+            4 -> {
+                addCardTitle(mainCard, if (notificationsEnabled) "Acesso autorizado" else "Opcional — você decide")
+                addCardBody(mainCard, if (notificationsEnabled) {
+                    "As notificações já estão autorizadas. Não é necessário fazer mais nada."
+                } else {
+                    "Você pode pular esta etapa e continuar usando o launcher. O acesso pode ser ativado depois em Configurações."
+                })
+            }
+            else -> {
+                addCardTitle(mainCard, "Resumo da configuração")
+                val summary = listOf(
+                    "Tela inicial" to if (homeEnabled) "Configurada" else "Não configurada",
+                    "Acessibilidade" to if (accessibilityEnabled) "Ativada" else "Pendente",
+                    "Notificações" to if (notificationsEnabled) "Autorizadas" else "Opcional / não autorizadas"
+                )
+                summary.forEach { item ->
+                    val row = LinearLayout(this).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        gravity = Gravity.CENTER_VERTICAL
+                        setPadding(0, dp(8), 0, dp(8))
+                    }
+                    row.addView(TextView(this).apply {
+                        text = item.first
+                        textSize = 13f
+                        setTextColor(Color.rgb(178, 194, 214))
+                    }, LinearLayout.LayoutParams(0, -2, 1f))
+                    row.addView(TextView(this).apply {
+                        text = item.second
+                        textSize = 12f
+                        setTextColor(Color.rgb(232, 239, 248))
+                        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                    })
+                    mainCard.addView(row)
+                }
+                addCardBody(mainCard, "Para personalizar depois, abra Configurações no topo da tela inicial e entre em Aparência, Aplicativos ou Canais.")
+            }
+        }
+        root.addView(mainCard, LinearLayout.LayoutParams(-1, -2))
+
+        val actions = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(20), 0, 0)
+        }
+
+        lateinit var dialog: AlertDialog
+
+        fun makeAction(label: String, primary: Boolean, action: () -> Unit): TextView {
+            return TextView(this).apply {
+                text = label
+                textSize = 13f
+                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                gravity = Gravity.CENTER
+                setPadding(dp(18), dp(12), dp(18), dp(12))
+                isFocusable = true
+                isClickable = true
+                background = GradientDrawable().apply {
+                    cornerRadius = dp(11).toFloat()
+                    setColor(if (primary) Color.rgb(28, 116, 157) else Color.rgb(22, 32, 47))
+                    setStroke(dp(1), if (primary) Color.rgb(59, 165, 207) else Color.rgb(55, 72, 94))
+                }
+                setTextColor(Color.WHITE)
+                setOnFocusChangeListener { view, focused ->
+                    view.background = GradientDrawable().apply {
+                        cornerRadius = dp(11).toFloat()
+                        setColor(if (primary || focused) Color.rgb(28, 116, 157) else Color.rgb(22, 32, 47))
+                        setStroke(dp(1), if (focused || primary) Color.rgb(83, 190, 226) else Color.rgb(55, 72, 94))
+                    }
+                }
+                setOnClickListener { action() }
+            }
+        }
+
+        fun moveTo(nextStep: Int) {
+            prefs.edit().putInt("setup_wizard_step", nextStep)
+                .putBoolean("setup_wizard_pending", true).apply()
+            dialog.dismiss()
+            window.decorView.postDelayed({ showSetupWizard() }, 180)
+        }
+
+        fun closeAndRun(action: () -> Unit) {
+            prefs.edit().putBoolean("setup_wizard_pending", true).apply()
+            dialog.dismiss()
+            action()
+        }
 
         when (step) {
             0 -> {
-                title = "Bem-vindo ao Launcher Lite"
-                message = "Vamos preparar sua TV em poucos passos. Você vai escolher o Launcher Lite como tela inicial. O Google TV original continuará instalado; o acesso às notificações é opcional."
-                actionLabel = "Começar"
+                actions.addView(makeAction("Agora não", false) {
+                    prefs.edit().putBoolean("setup_wizard_pending", false).apply()
+                    finishSetupWizard()
+                    dialog.dismiss()
+                })
+                actions.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
+                actions.addView(makeAction("COMEÇAR", true) { moveTo(1) })
             }
             1 -> {
-                title = "1 de 2 — Tela inicial padrão"
-                message = if (isHomeRoleHeld()) {
-                    "Perfeito! O Launcher Lite já está definido como tela inicial padrão."
-                } else {
-                    "Toque em Continuar para abrir a confirmação do Android. Escolha Launcher Lite e confirme como app de início."
-                }
-                actionLabel = if (isHomeRoleHeld()) "Próximo" else "Escolher Launcher Lite"
+                actions.addView(makeAction("VOLTAR", false) { moveTo(0) })
+                actions.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
+                actions.addView(makeAction(if (homeEnabled) "CONTINUAR" else "DEFINIR TELA INICIAL", true) {
+                    if (homeEnabled) moveTo(2) else closeAndRun { requestDefaultHome() }
+                })
             }
             2 -> {
-                title = "2 de 2 — Notificações (opcional)"
-                message = if (isNotificationAccessEnabled()) {
-                    "Acesso às notificações autorizado."
-                } else {
-                    "Se quiser ver notificações na tela inicial, autorize o acesso. Você pode pular esta etapa e ativar depois."
-                }
-                actionLabel = if (isNotificationAccessEnabled()) "Finalizar" else "Autorizar notificações"
+                actions.addView(makeAction("VOLTAR", false) { moveTo(1) })
+                actions.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
+                actions.addView(makeAction(if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) "JÁ EXECUTEI — CONTINUAR" else "ABRIR ACESSIBILIDADE", true) {
+                    prefs.edit().putInt("setup_wizard_step", 3).putBoolean("setup_wizard_pending", true).apply()
+                    closeAndRun { openAccessibilitySettings() }
+                })
+            }
+            3 -> {
+                actions.addView(makeAction("VOLTAR", false) { moveTo(2) })
+                actions.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
+                actions.addView(makeAction("DEIXAR PARA DEPOIS", false) { moveTo(4) })
+                actions.addView(makeAction(if (accessibilityEnabled) "CONTINUAR" else "ABRIR ACESSIBILIDADE", true) {
+                    if (accessibilityEnabled) moveTo(4) else closeAndRun { openAccessibilitySettings() }
+                }, LinearLayout.LayoutParams(-2, -2).apply { leftMargin = dp(8) })
+            }
+            4 -> {
+                actions.addView(makeAction("VOLTAR", false) { moveTo(3) })
+                actions.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
+                actions.addView(makeAction("PULAR", false) { moveTo(5) })
+                actions.addView(makeAction(if (notificationsEnabled) "CONTINUAR" else "AUTORIZAR", true) {
+                    if (notificationsEnabled) moveTo(5) else closeAndRun {
+                        openIntent(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                    }
+                }, LinearLayout.LayoutParams(-2, -2).apply { leftMargin = dp(8) })
             }
             else -> {
-                finishSetupWizard()
-                return
-            }
-        }
-
-        val content = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(28), dp(20), dp(28), dp(8))
-            setBackgroundColor(Color.rgb(12, 19, 32))
-        }
-        val progress = TextView(this).apply {
-            text = when (step) {
-                0 -> "CONFIGURAÇÃO INICIAL"
-                else -> "ETAPA $step DE 2"
-            }
-            textSize = 12f
-            letterSpacing = 0.12f
-            setTextColor(Color.rgb(87, 190, 230))
-        }
-        val body = TextView(this).apply {
-            text = message
-            textSize = 18f
-            setTextColor(Color.WHITE)
-            setLineSpacing(dp(5).toFloat(), 1f)
-            setPadding(0, dp(14), 0, dp(10))
-        }
-        content.addView(progress)
-        content.addView(body)
-        val dialog = AlertDialog.Builder(this, R.style.AppDialogTheme)
-            .setTitle(title)
-            .setView(content)
-            .setPositiveButton(actionLabel, null)
-            .setNegativeButton(if (step == 0) "Agora não" else "Voltar", null)
-            .apply {
-                if (canSkip) setNeutralButton("Pular", null)
-                
-            }
-            .create()
-
-        dialog.setOnShowListener {
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                when (step) {
-                    0 -> {
-                        prefs.edit().putInt("setup_wizard_step", 1).putBoolean("setup_wizard_pending", true).apply()
-                        dialog.dismiss()
-                        showSetupWizard()
-                    }
-                    1 -> {
-                        if (isHomeRoleHeld()) {
-                            prefs.edit().putInt("setup_wizard_step", 2).apply()
-                            dialog.dismiss()
-                            showSetupWizard()
-                        } else {
-                            dialog.dismiss()
-                            requestDefaultHome()
-                        }
-                    }
-                    2 -> {
-                        if (isNotificationAccessEnabled()) {
-                            dialog.dismiss()
-                            finishSetupWizard()
-                        } else {
-                            prefs.edit().putBoolean("setup_wizard_pending", true).apply()
-                            dialog.dismiss()
-                            openIntent(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-                        }
-                    }
-                }
-            }
-            dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setOnClickListener {
-                if (step == 0) {
-                    dialog.dismiss()
-                    prefs.edit().putBoolean("setup_wizard_pending", false).apply()
-                } else {
-                    prefs.edit().putInt("setup_wizard_step", (step - 1).coerceAtLeast(0)).apply()
-                    dialog.dismiss()
-                    showSetupWizard()
-                }
-            }
-            if (canSkip) {
-                dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener {
+                actions.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
+                actions.addView(makeAction("CONCLUIR", true) {
                     dialog.dismiss()
                     finishSetupWizard()
-                }
+                })
             }
         }
+        root.addView(actions)
+
+        dialog = AlertDialog.Builder(this, R.style.AppDialogTheme).setView(root).create()
         setupDialog = dialog
         dialog.setOnDismissListener { if (setupDialog === dialog) setupDialog = null }
         dialog.show()
-        dialog.window?.setLayout((resources.displayMetrics.widthPixels * 0.72f).toInt(), -2)
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+        dialog.window?.setLayout((resources.displayMetrics.widthPixels * 0.82f).toInt(), -2)
+        actions.getChildAt(actions.childCount - 1)?.requestFocus()
     }
 
     private fun finishSetupWizard() {
@@ -998,11 +1301,12 @@ class MainActivity : Activity() {
             .putBoolean("setup_wizard_finished", true)
             .putBoolean("setup_wizard_seen", true)
             .putBoolean("setup_wizard_pending", false)
-            .putInt("setup_wizard_version", 10)
-            .putInt("setup_wizard_step", 4)
+            .putInt("setup_wizard_version", 11)
+            .putInt("setup_wizard_step", 5)
             .apply()
         Toast.makeText(this, "Configuração concluída. Bem-vindo ao Launcher Lite!", Toast.LENGTH_LONG).show()
     }
+
     private fun requestDefaultHome() {
         prefs.edit().putBoolean("setup_wizard_pending", true).apply()
         try {
@@ -1416,16 +1720,15 @@ class MainActivity : Activity() {
     }
 
     private fun openVoice() {
+        // Delegate to the system's configured digital assistant (for example, Gemini).
         try {
-            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE, "pt-BR")
-                putExtra(RecognizerIntent.EXTRA_PROMPT, "Diga: tempo")
-            }
-            startActivityForResult(intent, 701)
+            startActivity(Intent(Intent.ACTION_ASSIST).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         } catch (_: Exception) {
-            try { startActivity(Intent(Intent.ACTION_ASSIST)) }
-            catch (_: Exception) { Toast.makeText(this, "O serviço de voz não está disponível", Toast.LENGTH_LONG).show() }
+            try {
+                startActivity(Intent("android.intent.action.VOICE_ASSIST").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            } catch (_: Exception) {
+                Toast.makeText(this, "Configure um assistente digital nas configurações do Android.", Toast.LENGTH_LONG).show()
+            }
         }
     }
 
