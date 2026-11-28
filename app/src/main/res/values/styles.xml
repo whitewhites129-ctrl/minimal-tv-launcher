@@ -1,9 +1,20 @@
 <resources>
     <style name="AppTheme" parent="@android:style/Theme.Material.NoActionBar">
         <item name="android:fontFamily">sans</item>
-        <item name="android:colorAccent">#4D9BFF</item>
+        <item name="android:colorAccent">#35C8F2</item>
         <item name="android:navigationBarColor">#05070B</item>
         <item name="android:statusBarColor">#05070B</item>
         <item name="android:windowBackground">#05070B</item>
+    </style>
+
+    <style name="AppDialogTheme" parent="@android:style/Theme.Material.Dialog.Alert">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:colorAccent">#35C8F2</item>
+        <item name="android:textColorPrimary">#F1F6FC</item>
+        <item name="android:textColorSecondary">#AABBD0</item>
+        <item name="android:windowBackground">@drawable/dialog_surface</item>
+        <item name="android:backgroundDimAmount">0.72</item>
+        <item name="android:windowMinWidthMajor">72%</item>
+        <item name="android:windowMinWidthMinor">86%</item>
     </style>
 </resources>
