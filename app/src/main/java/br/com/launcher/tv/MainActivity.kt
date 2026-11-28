@@ -2215,16 +2215,26 @@ class MainActivity : Activity() {
         }.start()
     }
 
+    private fun homeAppCapacity(): Int {
+        val columns = prefs.getInt("home_app_columns", 5).coerceIn(3, 7)
+        val rows = prefs.getInt("home_app_rows", 2).coerceIn(1, 2)
+        // One tile is always reserved for "Todos os apps".
+        return (columns * rows - 1).coerceAtLeast(1)
+    }
+
     private fun homeApps(): List<ResolveInfo> {
-        val saved = prefs.getString("home_apps_order", null) ?: return apps.take(9)
+        val capacity = homeAppCapacity()
+        val saved = prefs.getString("home_apps_order", null) ?: return apps.take(capacity)
         val byPackage = apps.associateBy { it.activityInfo.packageName }
-        return saved.split("|").filter { it.isNotBlank() }.mapNotNull { byPackage[it] }.take(9)
+        return saved.split("|").filter { it.isNotBlank() }.mapNotNull { byPackage[it] }.distinctBy {
+            it.activityInfo.packageName
+        }.take(capacity)
     }
 
     private fun saveHomeApps(items: List<ResolveInfo>) {
         prefs.edit().putString(
             "home_apps_order",
-            items.distinctBy { it.activityInfo.packageName }
+            items.distinctBy { it.activityInfo.packageName }.take(homeAppCapacity())
                 .joinToString("|") { it.activityInfo.packageName }
         ).apply()
     }
@@ -2430,8 +2440,10 @@ class MainActivity : Activity() {
             setTextColor(Color.WHITE)
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
         })
+        val pinnedCount = homeApps().size
+        val homeCapacity = homeAppCapacity()
         titleBlock.addView(TextView(this).apply {
-            text = "Escolha um app ou segure OK para fixar na tela inicial"
+            text = "Na tela inicial: $pinnedCount de $homeCapacity • Segure OK para adicionar ou remover"
             textSize = 12f
             setTextColor(Color.rgb(153, 174, 198))
             setPadding(0, dp(3), 0, 0)
@@ -2488,8 +2500,8 @@ class MainActivity : Activity() {
         }
         apps.forEachIndexed { index, app ->
             val packageName = app.activityInfo.packageName
-            val pinned = prefs.getString("home_apps_order", null)
-                ?.split("|")?.filter { it.isNotBlank() }?.contains(packageName) == true
+            // Match the exact apps currently rendered on HOME, including the configured capacity.
+            val pinned = homeApps().any { it.activityInfo.packageName == packageName }
             val item = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
@@ -2521,8 +2533,8 @@ class MainActivity : Activity() {
                                     current.removeAll { it.activityInfo.packageName == packageName }
                                     saveHomeApps(current)
                                     Toast.makeText(this@MainActivity, "App removido da tela inicial", Toast.LENGTH_SHORT).show()
-                                } else if (current.size >= 9) {
-                                    Toast.makeText(this@MainActivity, "A tela inicial comporta até 9 aplicativos fixados", Toast.LENGTH_LONG).show()
+                                } else if (current.size >= homeAppCapacity()) {
+                                    Toast.makeText(this@MainActivity, "A tela inicial comporta até ${homeAppCapacity()} aplicativos com a configuração atual. Aumente fileiras ou colunas nas configurações.", Toast.LENGTH_LONG).show()
                                 } else {
                                     current.add(app)
                                     saveHomeApps(current)
