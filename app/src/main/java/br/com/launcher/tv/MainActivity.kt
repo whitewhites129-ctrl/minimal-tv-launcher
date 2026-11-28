@@ -902,8 +902,6 @@ class MainActivity : Activity() {
         }
     }
 
-    private var setupDialog: AlertDialog? = null
-
     private fun showSetupWizard() {
         if (isFinishing || setupDialog?.isShowing == true) return
 
