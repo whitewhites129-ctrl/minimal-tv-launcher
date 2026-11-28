@@ -104,7 +104,7 @@ class MainActivity : Activity() {
         refreshClock()
         resetIdleTimer()
         // Reopen the guided setup once after an app update that changes setup steps.
-        if (prefs.getInt("setup_wizard_version", 0) < 11) {
+        if (prefs.getInt("setup_wizard_version", 0) < 12) {
             prefs.edit()
                 .putInt("setup_wizard_step", 0)
                 .putBoolean("setup_wizard_finished", false)
@@ -974,7 +974,7 @@ class MainActivity : Activity() {
             0 -> "Vamos preparar o Launcher Lite. Em poucos passos, você configura a navegação e conhece os recursos principais."
             1 -> if (homeEnabled) "O Launcher Lite já está selecionado como tela inicial padrão." else "Defina o Launcher Lite como tela inicial para abrir sua TV diretamente nele ao pressionar HOME."
             2 -> if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                "Em alguns aparelhos, o Android bloqueia a acessibilidade de apps instalados por APK. Use o QR Code abaixo para copiar o comando e liberar essa configuração."
+                "Primeiro ative a Depuração Wi-Fi nas Opções do desenvolvedor da TV. Depois escaneie o QR Code com o celular, execute o comando no Bugjaeger e volte aqui para continuar."
             } else {
                 "Nesta versão do Android, esta autorização adicional normalmente não é necessária. Você já pode seguir para a acessibilidade."
             }
@@ -1084,8 +1084,8 @@ class MainActivity : Activity() {
                         setPadding(dp(18), 0, 0, 0)
                         gravity = Gravity.CENTER_VERTICAL
                     }
-                    addCardTitle(instructions, "Use o celular para copiar")
-                    addCardBody(instructions, "1. Aponte a câmera para o QR Code.\n2. Toque na opção para copiar o texto identificado.\n3. Abra o Bugjaeger conectado à TV e cole o comando no terminal.")
+                    addCardTitle(instructions, "Siga esta ordem")
+                    addCardBody(instructions, "1. Ative a Depuração Wi-Fi nas Opções do desenvolvedor da TV.\n2. Volte para esta tela e escaneie o QR Code com a câmera do celular.\n3. Copie o comando reconhecido, abra o Bugjaeger, conecte à TV e execute o comando.\n4. Volte ao Launcher Lite e toque em JÁ EXECUTEI.")
                     val commandView = TextView(this).apply {
                         text = command
                         textSize = 11f
@@ -1098,30 +1098,10 @@ class MainActivity : Activity() {
                         }
                     }
                     instructions.addView(commandView, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10) })
-                    val copyButton = TextView(this).apply {
-                        text = "COPIAR COMANDO NA TV"
-                        textSize = 10f
-                        letterSpacing = 0.04f
-                        gravity = Gravity.CENTER
-                        setTextColor(Color.WHITE)
-                        setPadding(dp(12), dp(10), dp(12), dp(10))
-                        isFocusable = true
-                        isClickable = true
-                        background = GradientDrawable().apply {
-                            setColor(Color.rgb(34, 85, 119))
-                            cornerRadius = dp(9).toFloat()
-                        }
-                        setOnClickListener {
-                            val clipboard = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Comando Launcher Lite", command))
-                            Toast.makeText(this@MainActivity, "Comando copiado", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                    instructions.addView(copyButton, LinearLayout.LayoutParams(-1, dp(40)).apply { topMargin = dp(9) })
                     qrRow.addView(instructions, LinearLayout.LayoutParams(0, -2, 1f))
                     mainCard.addView(qrRow)
                     mainCard.addView(TextView(this).apply {
-                        text = "A leitura do QR Code não executa o comando. É necessário colá-lo e executá-lo no Bugjaeger."
+                        text = "Importante: o QR Code apenas mostra o comando. Ele precisa ser executado no Bugjaeger depois que a Depuração Wi-Fi estiver ativada."
                         textSize = 11f
                         setTextColor(Color.rgb(136, 157, 183))
                         setPadding(0, dp(12), 0, 0)
@@ -1213,7 +1193,7 @@ class MainActivity : Activity() {
                     view.background = GradientDrawable().apply {
                         cornerRadius = dp(11).toFloat()
                         setColor(if (primary || focused) Color.rgb(28, 116, 157) else Color.rgb(22, 32, 47))
-                        setStroke(dp(1), if (focused || primary) Color.rgb(83, 190, 226) else Color.rgb(55, 72, 94))
+                        setStroke(dp(1), if (focused) Color.rgb(112, 218, 247) else if (primary) Color.rgb(59, 165, 207) else Color.rgb(55, 72, 94))
                     }
                 }
                 setOnClickListener { action() }
@@ -1253,10 +1233,19 @@ class MainActivity : Activity() {
             2 -> {
                 actions.addView(makeAction("VOLTAR", false) { moveTo(1) })
                 actions.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
-                actions.addView(makeAction(if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) "JÁ EXECUTEI — CONTINUAR" else "ABRIR ACESSIBILIDADE", true) {
+                actions.addView(makeAction("ABRIR OPÇÕES DO DESENVOLVEDOR", false) {
+                    closeAndRun {
+                        try {
+                            startActivity(Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS))
+                        } catch (_: Exception) {
+                            startActivity(Intent(Settings.ACTION_SETTINGS))
+                        }
+                    }
+                }, LinearLayout.LayoutParams(-2, -2))
+                actions.addView(makeAction("JÁ EXECUTEI — CONTINUAR", true) {
                     prefs.edit().putInt("setup_wizard_step", 3).putBoolean("setup_wizard_pending", true).apply()
                     closeAndRun { openAccessibilitySettings() }
-                })
+                }, LinearLayout.LayoutParams(-2, -2).apply { leftMargin = dp(8) })
             }
             3 -> {
                 actions.addView(makeAction("VOLTAR", false) { moveTo(2) })
@@ -1300,7 +1289,7 @@ class MainActivity : Activity() {
             .putBoolean("setup_wizard_finished", true)
             .putBoolean("setup_wizard_seen", true)
             .putBoolean("setup_wizard_pending", false)
-            .putInt("setup_wizard_version", 11)
+            .putInt("setup_wizard_version", 12)
             .putInt("setup_wizard_step", 5)
             .apply()
         Toast.makeText(this, "Configuração concluída. Bem-vindo ao Launcher Lite!", Toast.LENGTH_LONG).show()
