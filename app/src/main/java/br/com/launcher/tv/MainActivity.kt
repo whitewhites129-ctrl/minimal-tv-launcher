@@ -527,15 +527,35 @@ class MainActivity : Activity() {
         fun paintSelection(value: Int) {
             chips.forEach { (chip, optionValue) ->
                 val selected = optionValue == value
-                chip.background = rounded(if (selected) Color.rgb(15, 87, 119) else Color.rgb(19, 29, 44),
-                    11, if (selected) Color.rgb(42, 190, 231) else Color.rgb(47, 65, 87))
+                chip.text = (if (selected) "✓  " else "") + options.first { it.second == optionValue }.first
+                chip.background = rounded(
+                    if (selected) Color.rgb(8, 111, 145) else Color.rgb(19, 29, 44),
+                    11,
+                    if (selected) Color.rgb(68, 218, 255) else Color.rgb(47, 65, 87)
+                )
                 chip.setTextColor(if (selected) Color.WHITE else Color.rgb(185, 201, 221))
+                chip.alpha = if (selected) 1f else 0.82f
+                chip.elevation = if (selected) dp(3).toFloat() else 0f
+                chip.contentDescription = options.first { it.second == optionValue }.first +
+                    if (selected) ", selecionado" else ""
             }
         }
         options.forEachIndexed { index, option ->
             val chip = TextView(this).apply {
                 text = option.first; textSize = 12f; gravity = Gravity.CENTER
                 isFocusable = true; isClickable = true; setPadding(dp(7), dp(8), dp(7), dp(8))
+                setOnFocusChangeListener { view, focused ->
+                    val selected = prefs.getInt(key, defaultValue) == option.second
+                    view.background = rounded(
+                        if (selected) Color.rgb(8, 111, 145) else if (focused) Color.rgb(43, 62, 85) else Color.rgb(19, 29, 44),
+                        11,
+                        if (focused) Color.rgb(94, 224, 255) else if (selected) Color.rgb(68, 218, 255) else Color.rgb(47, 65, 87)
+                    )
+                    (view as TextView).setTextColor(if (selected || focused) Color.WHITE else Color.rgb(185, 201, 221))
+                    view.scaleX = if (focused) 1.045f else 1f
+                    view.scaleY = if (focused) 1.045f else 1f
+                    view.elevation = if (focused || selected) dp(4).toFloat() else 0f
+                }
                 setOnClickListener {
                     prefs.edit().putInt(key, option.second).apply()
                     paintSelection(option.second); onChanged()
@@ -570,8 +590,19 @@ class MainActivity : Activity() {
         top.addView(titleBlock, LinearLayout.LayoutParams(0, dp(58), 1f))
         val close = TextView(this).apply {
             text = "✕"; textSize = 22f; gravity = Gravity.CENTER
-            setTextColor(Color.WHITE); isFocusable = true; isClickable = true
+            setTextColor(Color.rgb(183, 199, 218)); isFocusable = true; isClickable = true
             background = rounded(Color.rgb(19, 29, 44), 13, Color.rgb(49, 67, 90))
+            contentDescription = "Fechar configurações"
+            setOnFocusChangeListener { view, focused ->
+                view.background = rounded(
+                    if (focused) Color.rgb(15, 93, 126) else Color.rgb(19, 29, 44),
+                    13, if (focused) Color.rgb(79, 218, 255) else Color.rgb(49, 67, 90)
+                )
+                (view as TextView).setTextColor(if (focused) Color.WHITE else Color.rgb(183, 199, 218))
+                view.scaleX = if (focused) 1.08f else 1f
+                view.scaleY = if (focused) 1.08f else 1f
+                view.elevation = if (focused) dp(6).toFloat() else 0f
+            }
             setOnClickListener { dialog.dismiss() }
         }
         top.addView(close, LinearLayout.LayoutParams(dp(48), dp(44)))
@@ -1896,6 +1927,16 @@ class MainActivity : Activity() {
             isClickable = true
             background = rounded(Color.rgb(21, 31, 45), 15, Color.rgb(52, 69, 91))
             contentDescription = "Configurações da Launcher Lite"
+            setOnFocusChangeListener { view, focused ->
+                view.background = rounded(
+                    if (focused) Color.rgb(15, 93, 126) else Color.rgb(21, 31, 45),
+                    15, if (focused) Color.rgb(79, 218, 255) else Color.rgb(52, 69, 91)
+                )
+                (view as TextView).setTextColor(if (focused) Color.WHITE else Color.rgb(183, 199, 218))
+                view.scaleX = if (focused) 1.08f else 1f
+                view.scaleY = if (focused) 1.08f else 1f
+                view.elevation = if (focused) dp(6).toFloat() else 0f
+            }
             setOnClickListener { dialog.dismiss(); showDrawerSettingsDialog() }
         }, LinearLayout.LayoutParams(dp(50), dp(46)).apply { rightMargin = dp(8) })
         top.addView(TextView(this).apply {
