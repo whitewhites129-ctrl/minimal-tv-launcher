@@ -2727,7 +2727,9 @@ class MainActivity : Activity() {
         saverClock?.text = SimpleDateFormat("HH:mm", Locale.getDefault()).format(now)
         saverDate?.text = SimpleDateFormat("EEEE, d 'de' MMMM", Locale("pt", "BR")).format(now)
         val weatherView = saverView?.tag as? TextView
-        val currentWeather = if (::weatherText.isInitialized) weatherText.text.toString() else "Clima indisponível"
+        val currentWeather = if (::weatherText.isInitialized) {
+            weatherText.text.toString().substringBefore(" • Umidade")
+        } else "Clima indisponível"
         weatherView?.text = "${weatherIcon.text}  $currentWeather"
     }
 
