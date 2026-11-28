@@ -103,15 +103,10 @@ class MainActivity : Activity() {
         }
         refreshClock()
         resetIdleTimer()
-        // Reopen the guided setup once after an app update that changes setup steps.
-        if (prefs.getInt("setup_wizard_version", 0) < 12) {
-            prefs.edit()
-                .putInt("setup_wizard_step", 0)
-                .putBoolean("setup_wizard_finished", false)
-                .putBoolean("setup_wizard_pending", false)
-                .apply()
-        }
-        if (!prefs.getBoolean("setup_wizard_finished", false)) {
+        // Show the initial guide only on first setup. App updates must preserve
+        // the user's completed setup; the guide can still be opened manually.
+        if (!prefs.getBoolean("setup_wizard_finished", false) &&
+            !prefs.getBoolean("setup_wizard_seen", false)) {
             window.decorView.postDelayed({ showSetupWizard() }, 500)
         }
         clock.postDelayed(object : Runnable {
@@ -134,7 +129,8 @@ class MainActivity : Activity() {
         Log.d(lifecycleLogTag, "resumed; pauseGapMs=${lifecycle.lastResumeGapMs}, count=${lifecycle.resumeCount}")
         LauncherNotificationListener.instance?.refreshFromSystem()
         if (::channelRowContainer.isInitialized) renderChannels()
-        if (prefs.getBoolean("setup_wizard_pending", false) || !prefs.getBoolean("setup_wizard_finished", false)) {
+        if (prefs.getBoolean("setup_wizard_pending", false) ||
+            (!prefs.getBoolean("setup_wizard_finished", false) && !prefs.getBoolean("setup_wizard_seen", false))) {
             window.decorView.postDelayed({ showSetupWizard() }, 350)
         }
         if (::appGrid.isInitialized) {
@@ -815,8 +811,8 @@ class MainActivity : Activity() {
                             }
                             textSize = 11f; gravity = Gravity.CENTER
                             setTextColor(Color.WHITE); isFocusable = true; isClickable = true
-                            setPadding(dp(12), dp(10), dp(12), dp(10))
-                            background = rounded(Color.rgb(31, 43, 57), 9, border)
+                            setPadding(dp(14), dp(10), dp(14), dp(10))
+                            background = rounded(Color.rgb(31, 43, 57), 10, border)
                             setOnFocusChangeListener { v, focused ->
                                 v.background = rounded(Color.rgb(31, 43, 57), 9,
                                     if (focused) Color.rgb(132, 151, 170) else border)
@@ -836,7 +832,9 @@ class MainActivity : Activity() {
                                 }
                             }
                         }
-                        card.addView(action, LinearLayout.LayoutParams(-1, -2))
+                        card.addView(action, LinearLayout.LayoutParams(dp(176), dp(46)).apply {
+                            gravity = Gravity.LEFT
+                        })
                         content.addView(card, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(10) })
                     }
                 }
@@ -1463,7 +1461,9 @@ class MainActivity : Activity() {
         weatherPill.addView(weatherInfo)
         actions.addView(headerAction(R.drawable.ic_mic_modern, "Pesquisa por voz") { openVoice() })
         actions.addView(headerAction(R.drawable.ic_notifications_modern, "Notificações") { openNotificationsPanel() })
-        actions.addView(headerAction(R.drawable.ic_settings_modern, "Configurações do Launcher Lite") { showDrawerSettingsDialog() })
+        actions.addView(headerAction(R.drawable.ic_settings_modern, "Configurações do sistema") {
+            openIntent(Intent(Settings.ACTION_SETTINGS))
+        })
         val centeredHeader = FrameLayout(this).apply { clipChildren = false; clipToPadding = false }
         centeredHeader.addView(left, FrameLayout.LayoutParams(dp(230), -1, Gravity.LEFT or Gravity.CENTER_VERTICAL))
         centeredHeader.addView(weatherPill, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
@@ -2666,20 +2666,22 @@ class MainActivity : Activity() {
         if (saverView != null) return
         val panel = FrameLayout(this).apply { setBackgroundColor(Color.BLACK); isFocusable = true; isFocusableInTouchMode = true }
         val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER }
+        val saverWeatherText = TextView(this).apply {
+            textSize = 18f
+            setTextColor(Color.rgb(170, 181, 194))
+            gravity = Gravity.CENTER
+            maxLines = 1
+            setPadding(dp(8), 0, dp(8), dp(8))
+            visibility = if (prefs.getInt("screensaver_show_weather", 0) == 1) View.VISIBLE else View.GONE
+        }
         saverClock = TextView(this).apply {
             textSize = 76f; setTextColor(Color.WHITE)
             typeface = Typeface.create("sans-serif-light", Typeface.NORMAL); gravity = Gravity.CENTER
         }
         saverDate = TextView(this).apply { textSize = 20f; setTextColor(Color.LTGRAY); gravity = Gravity.CENTER }
-        content.addView(saverClock); content.addView(saverDate)
-        val saverWeatherText = TextView(this).apply {
-            textSize = 17f
-            setTextColor(Color.rgb(170, 181, 194))
-            gravity = Gravity.CENTER
-            setPadding(0, dp(14), 0, 0)
-            visibility = if (prefs.getInt("screensaver_show_weather", 0) == 1) View.VISIBLE else View.GONE
-        }
         content.addView(saverWeatherText)
+        content.addView(saverClock)
+        content.addView(saverDate)
         panel.addView(content, FrameLayout.LayoutParams(-1, -1, Gravity.CENTER))
         panel.tag = saverWeatherText
         panel.setOnClickListener { dismissScreenSaver() }
@@ -2699,7 +2701,9 @@ class MainActivity : Activity() {
         saverClock?.text = SimpleDateFormat("HH:mm", Locale.getDefault()).format(now)
         saverDate?.text = SimpleDateFormat("EEEE, d 'de' MMMM", Locale("pt", "BR")).format(now)
         val weatherView = saverView?.tag as? TextView
-        weatherView?.text = if (::weatherText.isInitialized) "${weatherIcon.text}  ${weatherText.text}" else "Clima indisponível"
+        val currentWeather = if (::weatherText.isInitialized) weatherText.text.toString() else "Clima indisponível"
+        val withoutHumidity = currentWeather.substringBefore("  •  Umidade")
+        weatherView?.text = "${weatherIcon.text}  $withoutHumidity"
     }
 
     private fun dismissScreenSaver() {
