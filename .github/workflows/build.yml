@@ -49,7 +49,7 @@ jobs:
         if: (github.ref == 'refs/heads/rebuild/product-grade-foundation' || github.ref == 'refs/heads/fix/app-drawer-icon' || github.ref == 'refs/heads/feature/launcher-settings-weather')
         run: gradle assembleDebug
       - name: Upload test APK
-        if: (github.ref == 'refs/heads/rebuild/product-grade-foundation' || github.ref == 'refs/heads/fix/app-drawer-icon')
+        if: (github.ref == 'refs/heads/rebuild/product-grade-foundation' || github.ref == 'refs/heads/fix/app-drawer-icon' || github.ref == 'refs/heads/feature/launcher-settings-weather')
         uses: actions/upload-artifact@v4
         with:
           name: launcher-lite-validation-debug
