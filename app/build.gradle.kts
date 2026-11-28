@@ -4,6 +4,7 @@ plugins {
 }
 
 dependencies {
+    implementation("com.google.zxing:core:3.5.3")
     testImplementation("junit:junit:4.13.2")
 }
 
@@ -15,8 +16,8 @@ android {
         applicationId = "br.com.launcher.tv"
         minSdk = 23
         targetSdk = 28
-        versionCode = 19
-        versionName = "0.7.0-beta.6"
+        versionCode = 20
+        versionName = "0.7.0-beta.7"
     }
 
     lint {
