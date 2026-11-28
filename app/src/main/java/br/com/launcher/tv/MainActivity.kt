@@ -1865,22 +1865,23 @@ class MainActivity : Activity() {
             setPadding(0, dp(5), 0, dp(12))
         }
         page.addView(weatherLocationView)
+        val reloadForecast = {
+            screenRoot.removeView(page)
+            weatherPage = null
+            refreshWeather { openWeatherScreen() }
+        }
         val currentWeatherCard = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(18), dp(10), dp(12), dp(10))
             background = rounded(Color.rgb(16, 24, 38), 18, Color.rgb(45, 65, 90))
-            isFocusable = true; isClickable = true
+            isFocusable = true; isFocusableInTouchMode = true; isClickable = true
+            contentDescription = "Atualizar clima e previsão"
             setOnFocusChangeListener { v, focused ->
                 v.background = rounded(Color.rgb(16, 24, 38), 18,
                     if (focused) accent else Color.rgb(45, 65, 90))
             }
-            setOnClickListener {
-                screenRoot.removeView(page)
-                weatherPage = null
-                refreshWeather()
-                openWeatherScreen()
-            }
+            setOnClickListener { reloadForecast() }
         }
         currentWeatherCard.addView(TextView(this).apply {
             text = weatherIcon.text.toString(); textSize = 23f; setTextColor(Color.WHITE)
@@ -1892,6 +1893,8 @@ class MainActivity : Activity() {
         currentWeatherCard.addView(TextView(this).apply {
             text = "↻"; textSize = 23f; gravity = Gravity.CENTER
             setTextColor(Color.rgb(174, 210, 232)); contentDescription = "Atualizar previsão"
+            isFocusable = true; isFocusableInTouchMode = true; isClickable = true
+            setOnClickListener { reloadForecast() }
         }, LinearLayout.LayoutParams(dp(42), dp(42)))
         page.addView(currentWeatherCard, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(16) })
         val hoursTitle = TextView(this).apply { text = "Previsão por hora — hoje"; textSize = 19f; setTextColor(Color.WHITE); setPadding(0, 0, 0, dp(8)) }
@@ -2164,7 +2167,7 @@ class MainActivity : Activity() {
         throw IOException("Não encontramos a localização desse CEP.")
     }
 
-    private fun refreshWeather() {
+    private fun refreshWeather(onComplete: (() -> Unit)? = null) {
         if (::weatherText.isInitialized) weatherText.text = "Atualizando clima…"
         if (::weatherUpdatedText.isInitialized) weatherUpdatedText.text = "Consultando CEP"
         val cep = currentWeatherCep()
@@ -2211,6 +2214,7 @@ class MainActivity : Activity() {
                 if (::weatherIcon.isInitialized) weatherIcon.text = resultSymbol
                 if (::weatherUpdatedText.isInitialized) weatherUpdatedText.text = resultUpdated
                 weatherLocationLabel = resultLocation
+                onComplete?.invoke()
             }
         }.start()
     }
