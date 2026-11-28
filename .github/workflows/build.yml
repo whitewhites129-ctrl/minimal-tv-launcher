@@ -46,10 +46,10 @@ jobs:
           gradle-version: '8.9'
 
       - name: Build debug APK for Realme Stick validation
-        if: github.ref == 'refs/heads/rebuild/product-grade-foundation'
+        if: (github.ref == 'refs/heads/rebuild/product-grade-foundation' || github.ref == 'refs/heads/fix/app-drawer-icon')
         run: gradle assembleDebug
       - name: Upload test APK
-        if: github.ref == 'refs/heads/rebuild/product-grade-foundation'
+        if: (github.ref == 'refs/heads/rebuild/product-grade-foundation' || github.ref == 'refs/heads/fix/app-drawer-icon')
         uses: actions/upload-artifact@v4
         with:
           name: launcher-lite-validation-debug
