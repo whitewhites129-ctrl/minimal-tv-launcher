@@ -15,8 +15,8 @@ android {
         applicationId = "br.com.launcher.tv"
         minSdk = 23
         targetSdk = 28
-        versionCode = 18
-        versionName = "0.7.0-beta.5"
+        versionCode = 19
+        versionName = "0.7.0-beta.6"
     }
 
     lint {
