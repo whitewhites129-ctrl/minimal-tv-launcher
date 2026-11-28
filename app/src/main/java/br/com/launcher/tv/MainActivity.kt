@@ -621,7 +621,7 @@ class MainActivity : Activity() {
         }
         contentScroll.addView(content, ViewGroup.LayoutParams(-1, -2))
 
-        val tabNames = listOf("Canais", "Aplicativos", "Aparência", "Clima")
+        val tabNames = listOf("Canais", "Aplicativos", "Aparência", "Clima", "Permissões")
         val tabViews = mutableListOf<TextView>()
         var activeTab = 0
         fun sectionCard(parent: LinearLayout, title: String, key: String, options: List<Pair<String, Int>>, defaultValue: Int, onChanged: () -> Unit = {}) {
@@ -2362,7 +2362,8 @@ class MainActivity : Activity() {
         }
         apps.forEachIndexed { index, app ->
             val packageName = app.activityInfo.packageName
-            val pinned = homeApps().any { it.activityInfo.packageName == packageName }
+            val pinned = prefs.getString("home_apps_order", null)
+                ?.split("|")?.filter { it.isNotBlank() }?.contains(packageName) == true
             val item = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
@@ -2576,7 +2577,16 @@ class MainActivity : Activity() {
         }
         saverDate = TextView(this).apply { textSize = 20f; setTextColor(Color.LTGRAY); gravity = Gravity.CENTER }
         content.addView(saverClock); content.addView(saverDate)
+        val saverWeatherText = TextView(this).apply {
+            textSize = 17f
+            setTextColor(Color.rgb(170, 181, 194))
+            gravity = Gravity.CENTER
+            setPadding(0, dp(14), 0, 0)
+            visibility = if (prefs.getInt("screensaver_show_weather", 0) == 1) View.VISIBLE else View.GONE
+        }
+        content.addView(saverWeatherText)
         panel.addView(content, FrameLayout.LayoutParams(-1, -1, Gravity.CENTER))
+        panel.tag = saverWeatherText
         panel.setOnClickListener { dismissScreenSaver() }
         screenRoot.addView(panel, FrameLayout.LayoutParams(-1, -1))
         saverView = panel
@@ -2593,6 +2603,8 @@ class MainActivity : Activity() {
         val now = Date()
         saverClock?.text = SimpleDateFormat("HH:mm", Locale.getDefault()).format(now)
         saverDate?.text = SimpleDateFormat("EEEE, d 'de' MMMM", Locale("pt", "BR")).format(now)
+        val weatherView = saverView?.tag as? TextView
+        weatherView?.text = if (::weatherText.isInitialized) "${weatherIcon.text}  ${weatherText.text}" else "Clima indisponível"
     }
 
     private fun dismissScreenSaver() {
