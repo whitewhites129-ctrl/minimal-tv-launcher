@@ -1955,41 +1955,43 @@ class MainActivity : Activity() {
             setPadding(dp(8), dp(7), dp(8), dp(7))
             background = rounded(Color.rgb(20, 29, 42), 16, Color.rgb(60, 76, 96))
         }
-        // Ícone da gaveta: quatro quadrados em grade 2x2, conforme a opção escolhida.
-        val glyph = object : View(this) {
-            private val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-                style = android.graphics.Paint.Style.FILL
-            }
-            override fun onDraw(canvas: android.graphics.Canvas) {
-                super.onDraw(canvas)
-                val cell = dp(11).toFloat()
-                val gap = dp(5).toFloat()
-                val total = cell * 2f + gap
-                val startX = (width - total) / 2f
-                val startY = (height - total) / 2f
-                for (row in 0..1) {
-                    for (col in 0..1) {
-                        paint.color = Color.rgb(211, 222, 235)
-                        val left = startX + col * (cell + gap)
-                        val top = startY + row * (cell + gap)
-                        canvas.drawRoundRect(left, top, left + cell, top + cell, dp(3).toFloat(), dp(3).toFloat(), paint)
-                    }
-                }
-            }
-        }.apply {
+
+        // Ícone real em 2x2: cada quadrado é uma View independente.
+        // Evita falha de desenho do Canvas em alguns firmwares de Android TV.
+        val glyph = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
             isFocusable = false
-            contentDescription = "Ícone com quatro quadrados da gaveta de aplicativos"
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+        }
+        repeat(2) {
+            val iconRow = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER
+            }
+            repeat(2) {
+                val square = View(this).apply {
+                    background = rounded(Color.rgb(211, 222, 235), 3, Color.TRANSPARENT)
+                    isFocusable = false
+                }
+                iconRow.addView(square, LinearLayout.LayoutParams(dp(10), dp(10)).apply {
+                    if (this@repeat > 0) leftMargin = dp(5)
+                })
+            }
+            glyph.addView(iconRow, LinearLayout.LayoutParams(-2, dp(10)).apply {
+                if (glyph.childCount > 0) topMargin = dp(5)
+            })
         }
         val glyphHolder = FrameLayout(this).apply {
             background = rounded(Color.rgb(29, 39, 53), 12, Color.rgb(68, 82, 101))
-            addView(glyph, FrameLayout.LayoutParams(dp(38), dp(38), Gravity.CENTER))
+            addView(glyph, FrameLayout.LayoutParams(-1, -1))
         }
         card.addView(glyphHolder, LinearLayout.LayoutParams(dp(52), dp(52)))
         card.addView(TextView(this).apply {
             text = "Todos os apps"
             textSize = 11f
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-            setTextColor(Color.rgb(226, 241, 250))
+            setTextColor(Color.rgb(226, 234, 244))
             gravity = Gravity.CENTER
             maxLines = 1
             setPadding(0, dp(5), 0, 0)
