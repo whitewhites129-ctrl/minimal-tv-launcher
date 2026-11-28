@@ -784,6 +784,62 @@ class MainActivity : Activity() {
                     })
                     content.addView(cepCard, LinearLayout.LayoutParams(-1, -2))
                 }
+                4 -> {
+                    addSettingsSection(content, "Permissões", "Gerencie os acessos usados pelos recursos do Launcher Lite.")
+                    val permissionItems = listOf(
+                        Triple("Acessibilidade", "Encaminhamento da tecla HOME e integração com o sistema.", "Ativar / gerenciar"),
+                        Triple("Notificações", "Exibe avisos compatíveis dos aplicativos na tela inicial.", "Ativar / gerenciar"),
+                        Triple("Acesso especial", "Permite liberar configurações restritas do Android.", "Ver instruções")
+                    )
+                    permissionItems.forEach { item ->
+                        val card = LinearLayout(this).apply {
+                            orientation = LinearLayout.VERTICAL
+                            setPadding(dp(16), dp(12), dp(16), dp(12))
+                            background = rounded(panel, 14, border)
+                        }
+                        card.addView(TextView(this).apply {
+                            text = item.first; textSize = 14f
+                            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                            setTextColor(Color.rgb(229, 236, 244))
+                        })
+                        card.addView(TextView(this).apply {
+                            text = item.second; textSize = 11f
+                            setTextColor(Color.rgb(153, 168, 187))
+                            setPadding(0, dp(4), 0, dp(9))
+                        })
+                        val action = TextView(this).apply {
+                            text = when (item.first) {
+                                "Acessibilidade" -> if (isAccessibilityServiceEnabled()) "ATIVA  •  GERENCIAR" else item.third
+                                "Notificações" -> if (isNotificationAccessEnabled()) "ATIVAS  •  GERENCIAR" else item.third
+                                else -> item.third
+                            }
+                            textSize = 11f; gravity = Gravity.CENTER
+                            setTextColor(Color.WHITE); isFocusable = true; isClickable = true
+                            setPadding(dp(12), dp(10), dp(12), dp(10))
+                            background = rounded(Color.rgb(31, 43, 57), 9, border)
+                            setOnFocusChangeListener { v, focused ->
+                                v.background = rounded(Color.rgb(31, 43, 57), 9,
+                                    if (focused) Color.rgb(132, 151, 170) else border)
+                            }
+                            setOnClickListener {
+                                when (item.first) {
+                                    "Acessibilidade" -> openAccessibilitySettings()
+                                    "Notificações" -> openIntent(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+                                    else -> AlertDialog.Builder(this@MainActivity, R.style.AppDialogTheme)
+                                        .setTitle("Acesso especial")
+                                        .setMessage("1. Ative a Depuração Wi-Fi nas Opções do desenvolvedor da TV.\n\n2. No Bugjaeger conectado à TV, execute:\nappops set br.com.launcher.tv ACCESS_RESTRICTED_SETTINGS allow\n\n3. Para conferir:\nappops get br.com.launcher.tv ACCESS_RESTRICTED_SETTINGS")
+                                        .setPositiveButton("Opções do desenvolvedor") { _, _ ->
+                                            try { startActivity(Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)) }
+                                            catch (_: Exception) { openIntent(Intent(Settings.ACTION_SETTINGS)) }
+                                        }
+                                        .setNegativeButton("Fechar", null).show()
+                                }
+                            }
+                        }
+                        card.addView(action, LinearLayout.LayoutParams(-1, -2))
+                        content.addView(card, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(10) })
+                    }
+                }
             }
         }
         tabNames.forEachIndexed { index, name ->
@@ -816,21 +872,22 @@ class MainActivity : Activity() {
 
     private fun showLauncherSettingsDialog() {
         AlertDialog.Builder(this, R.style.AppDialogTheme).setTitle("Configurações")
-            .setItems(arrayOf("Assistente de configuração", "Definir Launcher Lite como tela inicial", "Ativar acessibilidade (opcional)", "Acesso às notificações", "Configurações do Android")) { _, which ->
+            .setItems(arrayOf("Configurações do Launcher Lite", "Assistente de configuração", "Definir Launcher Lite como tela inicial", "Ativar acessibilidade", "Acesso às notificações", "Configurações do Android")) { _, which ->
                 when (which) {
-                    0 -> {
+                    0 -> showDrawerSettingsDialog()
+                    1 -> {
                         prefs.edit().putInt("setup_wizard_step", 0)
                             .putBoolean("setup_wizard_finished", false)
                             .putBoolean("setup_wizard_pending", true).apply()
                         showSetupWizard()
                     }
-                    1 -> requestDefaultHome()
-                    2 -> openAccessibilitySettings()
-                    3 -> {
+                    2 -> requestDefaultHome()
+                    3 -> openAccessibilitySettings()
+                    4 -> {
                         prefs.edit().putBoolean("setup_wizard_pending", true).apply()
                         openIntent(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                     }
-                    4 -> openIntent(Intent(Settings.ACTION_SETTINGS))
+                    5 -> openIntent(Intent(Settings.ACTION_SETTINGS))
                 }
             }.setNegativeButton("Fechar", null).show()
     }
