@@ -602,7 +602,7 @@ class MainActivity : Activity() {
         val cepField = EditText(this).apply {
             setText(currentWeatherCep()); hint = "CEP com 8 números"; textSize = 16f
             setTextColor(Color.WHITE); setHintTextColor(Color.rgb(116, 135, 159))
-            inputType = InputType.TYPE_CLASS_NUMBER; singleLine = true
+            inputType = InputType.TYPE_CLASS_NUMBER; setSingleLine(true)
             setPadding(dp(12), 0, dp(12), 0)
             background = rounded(Color.rgb(17, 27, 42), 12, Color.rgb(48, 68, 91))
         }
