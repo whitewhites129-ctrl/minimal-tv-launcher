@@ -208,31 +208,22 @@ class MainActivity : Activity() {
             layoutParams = ViewGroup.LayoutParams(-1, -1)
         }
         root.addView(createHeader(), LinearLayout.LayoutParams(-1, dp(104)))
-        root.addView(createChannelRow(), LinearLayout.LayoutParams(-1, dp(channelRegionHeight())))
+        // Two fixed zones: channels above and apps below. Neither zone scrolls vertically.
+        root.addView(createChannelRow(), LinearLayout.LayoutParams(-1, 0, 1f))
 
-        val content = FrameLayout(this).apply { clipChildren = false; clipToPadding = false }
-        val scroll = android.widget.ScrollView(this).apply {
-            isFillViewport = true
-            clipToPadding = false
+        val content = FrameLayout(this).apply {
             clipChildren = false
-            overScrollMode = View.OVER_SCROLL_NEVER
+            clipToPadding = false
         }
-        val gridFrame = FrameLayout(this).apply { clipChildren = false; clipToPadding = false }
         appGrid = GridLayout(this).apply {
             columnCount = 5
             useDefaultMargins = false
             alignmentMode = GridLayout.ALIGN_BOUNDS
             clipChildren = false
             clipToPadding = false
-            setPadding(dp(4), dp(14), dp(4), dp(14))
+            setPadding(dp(4), dp(8), dp(4), dp(10))
         }
-        gridFrame.addView(appGrid, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
-        scroll.addView(gridFrame, ViewGroup.LayoutParams(-1, -2))
-        content.addView(scroll, FrameLayout.LayoutParams(-1, -1))
-        scroll.post {
-            gridFrame.minimumHeight = scroll.height
-            gridFrame.requestLayout()
-        }
+        content.addView(appGrid, FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL))
         root.addView(content, LinearLayout.LayoutParams(-1, 0, 1f))
 
         screenRoot = FrameLayout(this)
@@ -252,15 +243,16 @@ class MainActivity : Activity() {
     private fun createChannelRow(): View {
         channelRowContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
+            gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
             clipChildren = false
             clipToPadding = false
-            setPadding(0, dp(3), 0, dp(8))
+            setPadding(0, dp(3), 0, dp(10))
         }
         return channelRowContainer.also { renderChannels() }
     }
 
     private fun channelRegionHeight(): Int {
-        val rows = prefs.getInt("channel_rows", 1).coerceIn(1, 3)
+        val rows = prefs.getInt("channel_rows", 1).coerceIn(1, 2)
         val size = prefs.getInt("channel_size", 1).coerceIn(0, 2)
         val cardHeight = when (size) { 0 -> 62; 2 -> 100; else -> 82 }
         return 60 + rows * cardHeight
@@ -278,13 +270,6 @@ class MainActivity : Activity() {
         val cardHeight = when (size) { 0 -> dp(62); 2 -> dp(100); else -> dp(82) }
         val screenWidth = (resources.displayMetrics.widthPixels / resources.displayMetrics.density).toInt()
         val contentWidth = screenWidth - 116
-        val scroller = android.widget.ScrollView(this).apply {
-            isVerticalScrollBarEnabled = false
-            overScrollMode = View.OVER_SCROLL_NEVER
-            clipChildren = false
-            clipToPadding = false
-            setPadding(0, dp(5), 0, dp(5))
-        }
         val grid = GridLayout(this).apply {
             columnCount = columns
             useDefaultMargins = false
@@ -306,7 +291,7 @@ class MainActivity : Activity() {
             }
             grid.addView(tile, params)
         }
-        channels.forEachIndexed { index, name ->
+        channels.take((columns * 2 - 1).coerceAtLeast(1)).forEachIndexed { index, name ->
             val tile = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
@@ -397,9 +382,8 @@ class MainActivity : Activity() {
                 gravity = Gravity.CENTER
             }, LinearLayout.LayoutParams(-1, -1))
         }
-        addChannelTile(addTile, channels.size)
-        scroller.addView(grid, ViewGroup.LayoutParams(-1, -2))
-        channelRowContainer.addView(scroller, LinearLayout.LayoutParams(-1, -1))
+        addChannelTile(addTile, channels.take((columns * 2 - 1).coerceAtLeast(1)).size)
+        channelRowContainer.addView(grid, LinearLayout.LayoutParams(-1, -2))
         if (::screenRoot.isInitialized && hasWindowFocus()) channelRowContainer.post {
             focusRestorationCoordinator.restore(screenRoot)
         }
@@ -493,13 +477,16 @@ class MainActivity : Activity() {
     }
 
     private fun applyHomeLayoutPreferences() {
+        val normalizedChannelRows = prefs.getInt("channel_rows", 1).coerceIn(1, 2)
+        val normalizedAppRows = prefs.getInt("home_app_rows", 2).coerceIn(1, 2)
+        prefs.edit().putInt("channel_rows", normalizedChannelRows)
+            .putInt("home_app_rows", normalizedAppRows).apply()
         if (::appGrid.isInitialized) renderApps()
         if (::channelRowContainer.isInitialized) {
-            val params = channelRowContainer.layoutParams
-            params.height = dp(channelRegionHeight())
-            channelRowContainer.layoutParams = params
             renderChannels(force = true)
+            channelRowContainer.requestLayout()
         }
+        if (::appGrid.isInitialized) appGrid.requestLayout()
     }
 
     private fun addSettingsSection(parent: LinearLayout, title: String, description: String? = null) {
@@ -571,6 +558,10 @@ class MainActivity : Activity() {
     }
 
     private fun showDrawerSettingsDialog() {
+        prefs.edit()
+            .putInt("channel_rows", prefs.getInt("channel_rows", 1).coerceIn(1, 2))
+            .putInt("home_app_rows", prefs.getInt("home_app_rows", 2).coerceIn(1, 2))
+            .apply()
         val dialog = android.app.Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
         val bg = Color.rgb(12, 17, 27)
         val panel = Color.rgb(22, 30, 43)
@@ -664,7 +655,7 @@ class MainActivity : Activity() {
                     addSettingsSection(content, "Canais favoritos", "Defina como os canais aparecem na tela inicial.")
                     val row1 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
                     sectionCard(row1, "Canais por fileira", "channel_columns", listOf("3" to 3, "4" to 4, "5" to 5, "6" to 6, "7" to 7), 5) { applyHomeLayoutPreferences() }
-                    sectionCard(row1, "Fileiras de canais", "channel_rows", listOf("1" to 1, "2" to 2, "3" to 3), 1) { applyHomeLayoutPreferences() }
+                    sectionCard(row1, "Fileiras de canais", "channel_rows", listOf("1" to 1, "2" to 2), 1) { applyHomeLayoutPreferences() }
                     content.addView(row1)
                     val row2 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
                     sectionCard(row2, "Tamanho dos cards", "channel_size", listOf("Pequeno" to 0, "Médio" to 1, "Grande" to 2), 1) { applyHomeLayoutPreferences() }
@@ -674,7 +665,7 @@ class MainActivity : Activity() {
                     addSettingsSection(content, "Aplicativos da tela inicial", "Organize os aplicativos fixados e a gaveta completa.")
                     val row1 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
                     sectionCard(row1, "Apps por fileira", "home_app_columns", listOf("3" to 3, "4" to 4, "5" to 5, "6" to 6, "7" to 7), 5) { applyHomeLayoutPreferences() }
-                    sectionCard(row1, "Fileiras de aplicativos", "home_app_rows", listOf("1" to 1, "2" to 2, "3" to 3), 2) { applyHomeLayoutPreferences() }
+                    sectionCard(row1, "Fileiras de aplicativos", "home_app_rows", listOf("1" to 1, "2" to 2), 2) { applyHomeLayoutPreferences() }
                     content.addView(row1)
                     val row2 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
                     sectionCard(row2, "Tamanho dos cards", "home_app_size", listOf("Pequeno" to 0, "Médio" to 1, "Grande" to 2), 1) { applyHomeLayoutPreferences() }
@@ -1823,7 +1814,7 @@ class MainActivity : Activity() {
     private fun renderApps(focus: Int = 0) {
         appGrid.removeAllViews()
         val columns = prefs.getInt("home_app_columns", 5).coerceIn(3, 7)
-        val rows = prefs.getInt("home_app_rows", 2).coerceIn(1, 3)
+        val rows = prefs.getInt("home_app_rows", 2).coerceIn(1, 2)
         val size = prefs.getInt("home_app_size", 1).coerceIn(0, 2)
         appGrid.columnCount = columns
         val screenWidth = (resources.displayMetrics.widthPixels / resources.displayMetrics.density).toInt()
