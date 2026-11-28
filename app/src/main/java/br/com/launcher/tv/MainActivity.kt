@@ -504,9 +504,9 @@ class MainActivity : Activity() {
 
     private fun addSettingsSection(parent: LinearLayout, title: String, description: String? = null) {
         parent.addView(TextView(this).apply {
-            text = title; textSize = 17f
+            text = title; textSize = 16f
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-            setTextColor(Color.WHITE); setPadding(0, dp(15), 0, dp(3))
+            setTextColor(Color.rgb(230, 238, 247)); setPadding(0, dp(19), 0, dp(5))
         })
         if (!description.isNullOrBlank()) parent.addView(TextView(this).apply {
             text = description; textSize = 11f
@@ -520,7 +520,7 @@ class MainActivity : Activity() {
     ) {
         parent.addView(TextView(this).apply {
             text = title; textSize = 12f
-            setTextColor(Color.rgb(178, 195, 216)); setPadding(0, dp(9), 0, dp(6))
+            setTextColor(Color.rgb(154, 174, 196)); setPadding(0, dp(11), 0, dp(7))
         })
         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         val chips = mutableListOf<Pair<TextView, Int>>()
@@ -529,13 +529,13 @@ class MainActivity : Activity() {
                 val selected = optionValue == value
                 chip.text = (if (selected) "✓  " else "") + options.first { it.second == optionValue }.first
                 chip.background = rounded(
-                    if (selected) Color.rgb(8, 111, 145) else Color.rgb(19, 29, 44),
-                    11,
-                    if (selected) Color.rgb(68, 218, 255) else Color.rgb(47, 65, 87)
+                    if (selected) Color.rgb(24, 67, 88) else Color.rgb(20, 29, 43),
+                    9,
+                    if (selected) Color.rgb(66, 170, 205) else Color.rgb(48, 63, 82)
                 )
                 chip.setTextColor(if (selected) Color.WHITE else Color.rgb(185, 201, 221))
                 chip.alpha = if (selected) 1f else 0.82f
-                chip.elevation = if (selected) dp(3).toFloat() else 0f
+                chip.elevation = if (selected) dp(1).toFloat() else 0f
                 chip.contentDescription = options.first { it.second == optionValue }.first +
                     if (selected) ", selecionado" else ""
             }
@@ -543,13 +543,13 @@ class MainActivity : Activity() {
         options.forEachIndexed { index, option ->
             val chip = TextView(this).apply {
                 text = option.first; textSize = 12f; gravity = Gravity.CENTER
-                isFocusable = true; isClickable = true; setPadding(dp(7), dp(8), dp(7), dp(8))
+                isFocusable = true; isClickable = true; setPadding(dp(7), dp(7), dp(7), dp(7))
                 setOnFocusChangeListener { view, focused ->
                     val selected = prefs.getInt(key, defaultValue) == option.second
                     view.background = rounded(
-                        if (selected) Color.rgb(8, 111, 145) else if (focused) Color.rgb(43, 62, 85) else Color.rgb(19, 29, 44),
-                        11,
-                        if (focused) Color.rgb(94, 224, 255) else if (selected) Color.rgb(68, 218, 255) else Color.rgb(47, 65, 87)
+                        if (selected) Color.rgb(24, 67, 88) else if (focused) Color.rgb(39, 57, 76) else Color.rgb(20, 29, 43),
+                        9,
+                        if (focused) Color.rgb(220, 237, 248) else if (selected) Color.rgb(66, 170, 205) else Color.rgb(48, 63, 82)
                     )
                     (view as TextView).setTextColor(if (selected || focused) Color.WHITE else Color.rgb(185, 201, 221))
                     view.scaleX = if (focused) 1.045f else 1f
@@ -562,7 +562,7 @@ class MainActivity : Activity() {
                 }
             }
             chips.add(chip to option.second)
-            row.addView(chip, LinearLayout.LayoutParams(0, dp(39), 1f).apply {
+            row.addView(chip, LinearLayout.LayoutParams(0, dp(42), 1f).apply {
                 if (index < options.lastIndex) rightMargin = dp(6)
             })
         }
@@ -575,17 +575,17 @@ class MainActivity : Activity() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.rgb(7, 12, 21))
-            setPadding(dp(34), dp(22), dp(34), dp(18))
+            setPadding(dp(38), dp(28), dp(38), dp(22))
         }
         val top = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         val titleBlock = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         titleBlock.addView(TextView(this).apply {
-            text = "Personalizar Launcher"; textSize = 26f
-            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL); setTextColor(Color.WHITE)
+            text = "Personalizar"; textSize = 25f
+            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL); setTextColor(Color.rgb(245, 248, 252))
         })
         titleBlock.addView(TextView(this).apply {
-            text = "Ajuste a organização e a aparência da sua tela inicial"
-            textSize = 12f; setTextColor(Color.rgb(145, 164, 188)); setPadding(0, dp(3), 0, 0)
+            text = "Organização e aparência da tela inicial"
+            textSize = 13f; setTextColor(Color.rgb(143, 161, 183)); setPadding(0, dp(5), 0, 0)
         })
         top.addView(titleBlock, LinearLayout.LayoutParams(0, dp(58), 1f))
         val close = TextView(this).apply {
@@ -1720,9 +1720,9 @@ class MainActivity : Activity() {
         val screenWidth = (resources.displayMetrics.widthPixels / resources.displayMetrics.density).toInt()
         val contentWidth = screenWidth - 116
         val horizontalMargins = 18 * columns
-        val tileWidth = dp(((contentWidth - horizontalMargins) / columns).coerceIn(96, 250))
+        val tileWidth = dp((((contentWidth - horizontalMargins) / columns) * 0.93f).toInt().coerceIn(90, 232))
         val ratio = when (size) { 0 -> 0.53f; 2 -> 0.72f; else -> 0.62f }
-        val tileHeight = (tileWidth * ratio).toInt().coerceAtLeast(dp(72))
+        val tileHeight = ((tileWidth * ratio) * 0.96f).toInt().coerceAtLeast(dp(68))
         val visible = homeApps().take((columns * rows - 1).coerceAtLeast(1))
         visible.forEachIndexed { index, app ->
             addAppCard(app, index, tileWidth, tileHeight, index / columns, index % columns)
@@ -1853,18 +1853,21 @@ class MainActivity : Activity() {
             }
             override fun onDraw(canvas: android.graphics.Canvas) {
                 super.onDraw(canvas)
-                val cell = dp(11).toFloat()
-                val gap = dp(6).toFloat()
-                val total = cell * 2f + gap
+                val cell = dp(7).toFloat()
+                val gap = dp(4).toFloat()
+                val total = cell * 3f + gap * 2f
                 val startX = (width - total) / 2f
                 val startY = (height - total) / 2f
-                for (row in 0..1) {
-                    for (col in 0..1) {
-                        paint.color = if (row == 1 && col == 1) Color.rgb(65, 205, 244)
-                            else Color.rgb(226, 239, 251)
+                for (row in 0..2) {
+                    for (col in 0..2) {
+                        paint.color = when {
+                            row == 1 && col == 1 -> Color.rgb(72, 190, 224)
+                            (row + col) % 2 == 0 -> Color.rgb(242, 247, 252)
+                            else -> Color.rgb(175, 202, 222)
+                        }
                         val left = startX + col * (cell + gap)
                         val top = startY + row * (cell + gap)
-                        canvas.drawRoundRect(left, top, left + cell, top + cell, dp(3).toFloat(), dp(3).toFloat(), paint)
+                        canvas.drawRoundRect(left, top, left + cell, top + cell, dp(2).toFloat(), dp(2).toFloat(), paint)
                     }
                 }
             }
@@ -1873,10 +1876,10 @@ class MainActivity : Activity() {
             contentDescription = "Ícone de quatro quadrados da gaveta de aplicativos"
         }
         val glyphHolder = FrameLayout(this).apply {
-            background = rounded(Color.rgb(18, 54, 76), 17, Color.rgb(48, 126, 159))
+            background = rounded(Color.rgb(25, 43, 61), 14, Color.rgb(62, 103, 132))
             addView(glyph, FrameLayout.LayoutParams(dp(38), dp(38), Gravity.CENTER))
         }
-        card.addView(glyphHolder, LinearLayout.LayoutParams(dp(58), dp(58)))
+        card.addView(glyphHolder, LinearLayout.LayoutParams(dp(52), dp(52)))
         card.addView(TextView(this).apply {
             text = "Todos os apps"
             textSize = 11f
