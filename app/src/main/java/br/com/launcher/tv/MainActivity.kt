@@ -787,6 +787,29 @@ class MainActivity : Activity() {
                         Triple("Notificações", "Exibe avisos compatíveis dos aplicativos na tela inicial.", "Ativar / gerenciar"),
                         Triple("Acesso especial", "Permite liberar configurações restritas do Android.", "Ver instruções")
                     )
+                    val reopenGuide = TextView(this).apply {
+                        text = "ABRIR GUIA DE CONFIGURAÇÃO"
+                        textSize = 12f
+                        gravity = Gravity.CENTER
+                        setTextColor(Color.WHITE)
+                        isFocusable = true; isClickable = true
+                        setPadding(dp(16), dp(13), dp(16), dp(13))
+                        background = rounded(Color.rgb(22, 75, 101), 11, accent)
+                        setOnFocusChangeListener { v, focused ->
+                            v.background = rounded(Color.rgb(22, 75, 101), 11,
+                                if (focused) Color.rgb(130, 218, 245) else accent)
+                        }
+                        setOnClickListener {
+                            prefs.edit().putInt("setup_wizard_step", 0)
+                                .putBoolean("setup_wizard_finished", false)
+                                .putBoolean("setup_wizard_seen", true)
+                                .putBoolean("setup_wizard_pending", true).apply()
+                            showSetupWizard()
+                        }
+                    }
+                    content.addView(reopenGuide, LinearLayout.LayoutParams(-2, dp(46)).apply {
+                        bottomMargin = dp(12)
+                    })
                     permissionItems.forEach { item ->
                         val card = LinearLayout(this).apply {
                             orientation = LinearLayout.VERTICAL
@@ -1834,26 +1857,6 @@ class MainActivity : Activity() {
         val top = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         top.addView(TextView(this).apply { text = "Previsão do tempo"; textSize = 27f; setTextColor(Color.WHITE) },
             LinearLayout.LayoutParams(0, -2, 1f))
-        val refreshForecast = TextView(this).apply {
-            text = "↻"; textSize = 22f; gravity = Gravity.CENTER
-            setTextColor(Color.rgb(174, 186, 199))
-            isFocusable = true; isClickable = true
-            contentDescription = "Atualizar previsão"
-            setPadding(dp(10), dp(4), dp(10), dp(4))
-            background = rounded(Color.rgb(14, 18, 25), 10, Color.rgb(48, 57, 68))
-            setOnFocusChangeListener { v, focused ->
-                v.background = rounded(Color.rgb(14, 18, 25), 10,
-                    if (focused) Color.rgb(135, 151, 168) else Color.rgb(48, 57, 68))
-                v.alpha = if (focused) 1f else 0.72f
-            }
-            setOnClickListener {
-                screenRoot.removeView(page)
-                weatherPage = null
-                refreshWeather()
-                openWeatherScreen()
-            }
-        }
-        top.addView(refreshForecast, LinearLayout.LayoutParams(dp(42), dp(38)))
         page.addView(top)
         val weatherLocationView = TextView(this).apply {
             text = weatherLocationLabel
@@ -1862,7 +1865,30 @@ class MainActivity : Activity() {
             setPadding(0, dp(5), 0, dp(12))
         }
         page.addView(weatherLocationView)
-        page.addView(TextView(this).apply { text = weatherIcon.text.toString() + "   " + weatherText.text.toString(); textSize = 19f; setTextColor(Color.WHITE); setPadding(dp(18), dp(10), dp(18), dp(10)); background = rounded(Color.rgb(16, 24, 38), 18, Color.rgb(45, 65, 90)) }, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(16) })
+        val currentWeatherCard = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(18), dp(10), dp(12), dp(10))
+            background = rounded(Color.rgb(16, 24, 38), 18, Color.rgb(45, 65, 90))
+            isFocusable = true; isClickable = true
+            setOnFocusChangeListener { v, focused ->
+                v.background = rounded(Color.rgb(16, 24, 38), 18,
+                    if (focused) accent else Color.rgb(45, 65, 90))
+            }
+            setOnClickListener { refreshWeather() }
+        }
+        currentWeatherCard.addView(TextView(this).apply {
+            text = weatherIcon.text.toString(); textSize = 23f; setTextColor(Color.WHITE)
+        })
+        currentWeatherCard.addView(TextView(this).apply {
+            text = weatherText.text.toString(); textSize = 19f; setTextColor(Color.WHITE)
+            setPadding(dp(12), 0, dp(8), 0)
+        }, LinearLayout.LayoutParams(0, -2, 1f))
+        currentWeatherCard.addView(TextView(this).apply {
+            text = "↻"; textSize = 23f; gravity = Gravity.CENTER
+            setTextColor(Color.rgb(174, 210, 232)); contentDescription = "Atualizar previsão"
+        }, LinearLayout.LayoutParams(dp(42), dp(42)))
+        page.addView(currentWeatherCard, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(16) })
         val hoursTitle = TextView(this).apply { text = "Previsão por hora — hoje"; textSize = 19f; setTextColor(Color.WHITE); setPadding(0, 0, 0, dp(8)) }
         page.addView(hoursTitle)
         val hs = android.widget.HorizontalScrollView(this).apply {
@@ -2679,8 +2705,8 @@ class MainActivity : Activity() {
             typeface = Typeface.create("sans-serif-light", Typeface.NORMAL); gravity = Gravity.CENTER
         }
         saverDate = TextView(this).apply { textSize = 20f; setTextColor(Color.LTGRAY); gravity = Gravity.CENTER }
-        content.addView(saverWeatherText)
         content.addView(saverClock)
+        content.addView(saverWeatherText)
         content.addView(saverDate)
         panel.addView(content, FrameLayout.LayoutParams(-1, -1, Gravity.CENTER))
         panel.tag = saverWeatherText
@@ -2702,8 +2728,7 @@ class MainActivity : Activity() {
         saverDate?.text = SimpleDateFormat("EEEE, d 'de' MMMM", Locale("pt", "BR")).format(now)
         val weatherView = saverView?.tag as? TextView
         val currentWeather = if (::weatherText.isInitialized) weatherText.text.toString() else "Clima indisponível"
-        val withoutHumidity = currentWeather.substringBefore("  •  Umidade")
-        weatherView?.text = "${weatherIcon.text}  $withoutHumidity"
+        weatherView?.text = "${weatherIcon.text}  $currentWeather"
     }
 
     private fun dismissScreenSaver() {
