@@ -708,6 +708,23 @@ class MainActivity : Activity() {
                         }
                     }
                     content.addView(reset, LinearLayout.LayoutParams(-1, -2))
+                    val saverTitle = TextView(this).apply {
+                        text = "Descanso de tela"; textSize = 15f
+                        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                        setTextColor(Color.rgb(229, 236, 244))
+                        setPadding(0, dp(18), 0, dp(5))
+                    }
+                    content.addView(saverTitle)
+                    val saverCard = LinearLayout(this).apply {
+                        orientation = LinearLayout.VERTICAL
+                        setPadding(dp(16), dp(10), dp(16), dp(14))
+                        background = rounded(panel, 15, border)
+                    }
+                    addSettingsChoices(saverCard, "Iniciar após", "screensaver_minutes",
+                        listOf("1 min" to 1, "3 min" to 3, "5 min" to 5, "10 min" to 10, "15 min" to 15, "30 min" to 30), 5)
+                    addSettingsChoices(saverCard, "Mostrar clima no descanso de tela", "screensaver_show_weather",
+                        listOf("Não" to 0, "Sim" to 1), 0)
+                    content.addView(saverCard, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
                     val system = TextView(this).apply {
                         text = "Configurações do sistema"; textSize = 13f
                         setTextColor(Color.rgb(218, 226, 236)); gravity = Gravity.CENTER
@@ -1758,7 +1775,28 @@ class MainActivity : Activity() {
         }
         weatherPage = page
         val top = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        top.addView(TextView(this).apply { text = "Previsão do tempo"; textSize = 27f; setTextColor(Color.WHITE) })
+        top.addView(TextView(this).apply { text = "Previsão do tempo"; textSize = 27f; setTextColor(Color.WHITE) },
+            LinearLayout.LayoutParams(0, -2, 1f))
+        val refreshForecast = TextView(this).apply {
+            text = "↻"; textSize = 22f; gravity = Gravity.CENTER
+            setTextColor(Color.rgb(174, 186, 199))
+            isFocusable = true; isClickable = true
+            contentDescription = "Atualizar previsão"
+            setPadding(dp(10), dp(4), dp(10), dp(4))
+            background = rounded(Color.rgb(14, 18, 25), 10, Color.rgb(48, 57, 68))
+            setOnFocusChangeListener { v, focused ->
+                v.background = rounded(Color.rgb(14, 18, 25), 10,
+                    if (focused) Color.rgb(135, 151, 168) else Color.rgb(48, 57, 68))
+                v.alpha = if (focused) 1f else 0.72f
+            }
+            setOnClickListener {
+                screenRoot.removeView(page)
+                weatherPage = null
+                refreshWeather()
+                openWeatherScreen()
+            }
+        }
+        top.addView(refreshForecast, LinearLayout.LayoutParams(dp(42), dp(38)))
         page.addView(top)
         val weatherLocationView = TextView(this).apply {
             text = weatherLocationLabel
