@@ -1527,33 +1527,44 @@ class MainActivity : Activity() {
             setPadding(dp(8), dp(7), dp(8), dp(7))
             background = rounded(Color.rgb(12, 29, 43), 20, Color.rgb(39, 111, 145))
         }
-        val glyph = GridLayout(this).apply {
-            columnCount = 3
-            rowCount = 3
-            useDefaultMargins = false
-            alignmentMode = GridLayout.ALIGN_BOUNDS
+        // Draw the app-drawer symbol directly so every device renders the
+        // same 3x3 mark. Avoid implicit GridLayout child sizing on TV firmware.
+        val glyph = object : View(this) {
+            private val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                style = android.graphics.Paint.Style.FILL
+            }
+
+            override fun onDraw(canvas: android.graphics.Canvas) {
+                super.onDraw(canvas)
+                val cell = dp(6).toFloat()
+                val gap = dp(5).toFloat()
+                val total = cell * 3f + gap * 2f
+                val startX = (width - total) / 2f
+                val startY = (height - total) / 2f
+
+                for (row in 0..2) {
+                    for (col in 0..2) {
+                        paint.color = if (row == 1 && col == 1) {
+                            Color.rgb(108, 211, 244)
+                        } else {
+                            Color.rgb(221, 239, 250)
+                        }
+                        val left = startX + col * (cell + gap)
+                        val top = startY + row * (cell + gap)
+                        canvas.drawRoundRect(
+                            left, top, left + cell, top + cell,
+                            dp(2).toFloat(), dp(2).toFloat(), paint
+                        )
+                    }
+                }
+            }
+        }.apply {
             isFocusable = false
-        }
-        repeat(9) {
-            val dot = View(this).apply {
-                background = rounded(
-                    if (it == 4) Color.rgb(108, 211, 244) else Color.rgb(221, 239, 250),
-                    5,
-                    Color.TRANSPARENT
-                )
-                minimumWidth = dp(12)
-                minimumHeight = dp(12)
-            }
-            val params = GridLayout.LayoutParams(
-                GridLayout.spec(it / 3), GridLayout.spec(it % 3)
-            ).apply {
-                setMargins(dp(3), dp(3), dp(3), dp(3))
-            }
-            glyph.addView(dot, params)
+            contentDescription = "Ícone da gaveta de aplicativos"
         }
         val glyphHolder = FrameLayout(this).apply {
             background = rounded(Color.rgb(18, 54, 76), 17, Color.rgb(48, 126, 159))
-            addView(glyph, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
+            addView(glyph, FrameLayout.LayoutParams(dp(38), dp(38), Gravity.CENTER))
         }
         card.addView(glyphHolder, LinearLayout.LayoutParams(dp(58), dp(58)))
         card.addView(TextView(this).apply {
