@@ -1091,7 +1091,7 @@ class MainActivity : Activity() {
                         textSize = 11f
                         setTextColor(Color.rgb(215, 228, 243))
                         setPadding(dp(10), dp(9), dp(10), dp(9))
-                        setTextIsSelectable(true)
+                        setTextIsSelectable(false)
                         background = GradientDrawable().apply {
                             setColor(Color.rgb(8, 14, 23))
                             cornerRadius = dp(8).toFloat()
@@ -1182,18 +1182,19 @@ class MainActivity : Activity() {
                 gravity = Gravity.CENTER
                 setPadding(dp(18), dp(12), dp(18), dp(12))
                 isFocusable = true
+                isFocusableInTouchMode = true
                 isClickable = true
                 background = GradientDrawable().apply {
                     cornerRadius = dp(11).toFloat()
-                    setColor(if (primary) Color.rgb(28, 116, 157) else Color.rgb(22, 32, 47))
-                    setStroke(dp(1), if (primary) Color.rgb(59, 165, 207) else Color.rgb(55, 72, 94))
+                    setColor(Color.rgb(22, 32, 47))
+                    setStroke(dp(1), Color.rgb(55, 72, 94))
                 }
                 setTextColor(Color.WHITE)
                 setOnFocusChangeListener { view, focused ->
                     view.background = GradientDrawable().apply {
                         cornerRadius = dp(11).toFloat()
-                        setColor(if (primary || focused) Color.rgb(28, 116, 157) else Color.rgb(22, 32, 47))
-                        setStroke(dp(1), if (focused) Color.rgb(112, 218, 247) else if (primary) Color.rgb(59, 165, 207) else Color.rgb(55, 72, 94))
+                        setColor(if (focused) Color.rgb(17, 105, 145) else Color.rgb(22, 32, 47))
+                        setStroke(dp(if (focused) 2 else 1), if (focused) Color.rgb(112, 226, 255) else Color.rgb(55, 72, 94))
                     }
                 }
                 setOnClickListener { action() }
