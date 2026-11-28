@@ -1037,6 +1037,7 @@ class MainActivity : Activity() {
                 val featureRows = listOf(
                     "APPS E CANAIS" to "Organize seus aplicativos e atalhos favoritos na tela inicial.",
                     "CLIMA E NOTIFICAÇÕES" to "Consulte o clima e acompanhe avisos compatíveis.",
+                    "ASSISTENTE DE VOZ" to "O microfone chama o assistente padrão da TV, como Gemini quando configurado.",
                     "PERSONALIZAÇÃO" to "Ajuste aparência, linhas, cartões e organização."
                 )
                 featureRows.forEachIndexed { index, item ->
